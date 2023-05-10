@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+    <arg name="ambf_args" default=""/>
+    <arg name="launch_file" default="$(find cm_actuation)/launch.yaml " />
+
+    <node pkg="cm_actuation" name="ambf_with_CM_plugin" type="start_ambf_simul_for_roslaunch.sh" 
+        args="--launch_file $(arg launch_file) $(arg ambf_args)" output="screen"/>
+
+</launch>
