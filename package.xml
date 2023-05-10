@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>cm_actuation</name>
+  <version>0.0.0</version>
+  <description>contains simul and real implementations for CM actuator and accompanying robotic roll actuator</description>
+
+  <maintainer email="henry.phalen@jhu.edu">Henry Phalen</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>ambf_msgs</build_depend>
+  <build_depend>ambf_client</build_depend>
+
+  <build_export_depend>ambf_msgs</build_export_depend>
+  <build_export_depend>ambf_client</build_export_depend>
+
+  <exec_depend>ambf_msgs</exec_depend>
+  <exec_depend>ambf_client</exec_depend>
+  <exec_depend>rospy</exec_depend>
+
+  <export>
+  </export>
+
+</package>

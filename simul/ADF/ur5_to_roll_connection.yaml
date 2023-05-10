@@ -3,31 +3,36 @@
 # Link: https://github.com/WPI-AIM/ambf_addon
 # Generated on: 2022-04-25 04:58:52
 joints:
-- JOINT wrist_3_link_to_roll_base
+- JOINT wrist_3_link-roll_base
 # high resolution path: meshes/ur5_to_roll_connection/high_res/
 # low resolution path: meshes/ur5_to_roll_connection/low_res/
 ignore inter-collision: true
 namespace: /ambf/env/ur5_to_roll_connection/
-JOINT wrist_3_link_to_roll_base:
-  name: wrist_3_link_to_roll_base
+JOINT wrist_3_link-roll_base:
+  name: wrist_3_link-roll_base
   parent: BODY wrist_3_link
   child: BODY roll_base
   parent axis:
-    x: -0.0
+    x: 1.0e-05
     y: 0.0
     z: -1.0
   parent pivot:
     x: 0.0
     y: 0.0823
-    z: 0.0
+    z: -0.0
   child axis:
-    x: -0.0
-    y: 0.0
-    z: 1.0
+    x: 0.0
+    y: 1.0
+    z: -0.0
   child pivot:
     x: -0.0
-    y: -0.0
-    z: -0.0
+    y: 0.0
+    z: 0.0
+  joint limits:
+    high: 1.2
+    low: -1.2
   enable feedback: false
   passive: false
+  controller output type: VELOCITY
   type: fixed
+  offset: 1.57079

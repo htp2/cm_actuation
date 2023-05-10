@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+  <include file="$(find cm_actuation)/launch/roslaunch_ambf_wrapper.launch">
+        <arg name="ambf_args" value=" \
+          -l 3"/>
+    </include>
+
+</launch>

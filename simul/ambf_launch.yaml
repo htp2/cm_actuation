@@ -1,0 +1,17 @@
+adf version: 1.0
+world config: ADF/world/world_no_gravity.yaml
+color config: ADF/color/colors.yaml
+input devices config: ADF/input_devices/input_devices.yaml
+plugins: [
+  {
+    name: TRACE_PLUGIN,
+    filename: libambf_trace_plugin.so,
+    path: ../../build/ambf_trace_plugin/, # This is to use if catkin-built
+  }
+]
+multibody configs:
+  - "ADF/roll_and_cm_act.yaml" #0
+  - "../../continuum-manip-volumetric-drilling-plugin/ADF/ur5.yaml" #1
+  - "ADF/ur5_to_roll_connection.yaml" #2
+  - "ADF/ur5_roll_and_cm_act.yaml" #3
+

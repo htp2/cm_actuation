@@ -49,7 +49,7 @@ BODY cm_act:
     angular: 0.1
     linear: 0.04
   visible: true
-  collision groups: []
+  collision groups: [0]
 BODY roll_base:
   name: roll_base
   mesh: roll_base.STL
@@ -88,7 +88,7 @@ BODY roll_base:
     angular: 0.1
     linear: 0.04
   visible: true
-  collision groups: []
+  collision groups: [0]
 JOINT roll_base-cm_act:
   name: roll_base-cm_act
   parent: BODY roll_base
