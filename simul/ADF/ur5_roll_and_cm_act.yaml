@@ -3,24 +3,24 @@
 # Link: https://github.com/WPI-AIM/ambf_addon
 # Generated on: 2023-05-10 18:57:36
 bodies:
-- BODY base_link
-- BODY cm_act
-- BODY forearm_link
-- BODY roll_base
-- BODY shoulder_link
-- BODY upper_arm_link
-- BODY wrist_1_link
-- BODY wrist_2_link
-- BODY wrist_3_link
+- BODY base_link  #0
+- BODY shoulder_link #1
+- BODY upper_arm_link #2
+- BODY forearm_link #3
+- BODY wrist_1_link #4
+- BODY wrist_2_link #5
+- BODY wrist_3_link #6
+- BODY roll_base #7
+- BODY cm_act   #8
 joints:
-- JOINT upper_arm_link-forearm_link
-- JOINT wrist_3_link-roll_base
-- JOINT roll_base-cm_act
-- JOINT shoulder_link-upper_arm_link
-- JOINT base_link-shoulder_link
-- JOINT forearm_link-wrist_1_link
+- JOINT base_link-shoulder_link #0
+- JOINT shoulder_link-upper_arm_link #1
+- JOINT upper_arm_link-forearm_link #2
+- JOINT forearm_link-wrist_1_link #3
 - JOINT wrist_1_link-wrist_2_link
 - JOINT wrist_2_link-wrist_3_link
+- JOINT wrist_3_link-roll_base
+- JOINT roll_base-cm_act
 high resolution path: meshes/high_res/
 low resolution path: meshes/low_res/
 ignore inter-collision: true
