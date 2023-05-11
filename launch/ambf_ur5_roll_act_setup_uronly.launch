@@ -3,7 +3,7 @@
 
   <include file="$(find cm_actuation)/launch/roslaunch_ambf_wrapper.launch">
         <arg name="ambf_args" value=" \
-          -l 3"/>
+          -l 2"/>
     </include>
 
 </launch>

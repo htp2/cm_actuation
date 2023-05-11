@@ -10,7 +10,7 @@ joints:
 high resolution path: meshes/high_res/
 low resolution path: meshes/low_res/
 ignore inter-collision: true
-namespace: /ambf/env/ur5/
+namespace: /ambf/env/roll_act/
 BODY cm_act:
   name: cm_act
   mesh: cm_act.OBJ
@@ -49,7 +49,7 @@ BODY cm_act:
     angular: 0.1
     linear: 0.04
   visible: true
-  collision groups: []
+  collision groups: [1]
 BODY roll_base:
   name: roll_base
   mesh: roll_base.OBJ
@@ -77,9 +77,9 @@ BODY roll_base:
       y: 0
   passive: false
   color: random
-  publish children names: false
-  publish joint names: false
-  publish joint positions: false
+  publish children names: true
+  publish joint names: true
+  publish joint positions: true
   friction:
     rolling: 0.0
     static: 0.5
@@ -88,7 +88,7 @@ BODY roll_base:
     angular: 0.1
     linear: 0.04
   visible: true
-  collision groups: []
+  collision groups: [1]
 JOINT roll_base-cm_act:
   name: roll_base-cm_act
   parent: BODY roll_base

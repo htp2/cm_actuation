@@ -14,18 +14,16 @@ class BIGSS_ROLL_AMBF:
     def __init__(self, client, name, use_simul_pos_for_vel=False):
         self.client = client
         self.name = name
-        self.base = self.client.get_obj_handle(name + '/base_link')
+        self.base = self.client.get_obj_handle(name + '/roll_base')
         self.use_simul_pos_for_vel = use_simul_pos_for_vel
         time.sleep(0.5)
         self.rate_hz = 120
         self.rate = rospy.Rate(self.rate_hz)
 
-        self._T_b_w = None
-        self._T_w_b = None
         self._base_pose_updated = False
         self._num_joints = 1
-        self.servo_jv_cmd = [0]
-        self.servo_jp_cmd = [0]
+        self.servo_jv_cmd = [0.0]
+        self.servo_jp_cmd = [0.0]
         self.servo_jp_flag = False
         self.pub_measured_js = rospy.Publisher(
             "/ambf/env/"+name+"/measured_js", JointState, queue_size=1)
@@ -50,12 +48,15 @@ class BIGSS_ROLL_AMBF:
         self.base.set_joint_pos(0, jp[0])
 
     def servo_jv(self, jv):
+        print("in servo_jv")
         if self.use_simul_pos_for_vel:
             jp = [p + v/self.rate_hz for p,v in zip(self.measured_js(),jv)]
             self.servo_jp(jp)
             return
         if (not self.is_present()):
+            print("not pres")
             return
+        print(f"sending comm: {jv[0]}")
         self.base.set_joint_vel(0, jv[0])
 
     def measured_js(self):
@@ -72,6 +73,7 @@ class BIGSS_ROLL_AMBF:
         return self.base.get_joint_names()
 
     def sub_servo_jv_callback(self, msg):  # JointState
+        print("in servo_jv_callback")
         self.servo_jv_cmd = msg.velocity
 
     def sub_servo_jp_callback(self, msg):  # JointState
@@ -93,6 +95,7 @@ class BIGSS_ROLL_AMBF:
                 print("Tried to reconnect")
             self.publish_measured_js()
             self.FK(self.measured_js())
+            print(f"self.servo_jp_flag: {self.servo_jp_flag}")
             if self.servo_jp_flag:
                 self.servo_jp(self.servo_jp_cmd)
                 self.servo_jp_flag = False
@@ -104,13 +107,13 @@ class BIGSS_ROLL_AMBF:
     def FK(self, th):
         FK_T = np.eye(4)  # Starting the transformations
         
-
+        # rotation about z axis by theta
+        R = Rotation.from_rotvec([0, 0, th[0]]).as_matrix()
+        FK_T[0:3, 0:3] = R
         fk_msg = PoseStamped()
         fk_msg.header.stamp = rospy.Time.now()
-        # fk_msg.pose.position = FK_T[0:3,3]
         (fk_msg.pose.position.x, fk_msg.pose.position.y,
          fk_msg.pose.position.z) = FK_T[0:3, 3]
-
         q = Rotation.from_matrix(FK_T[0:3, 0:3]).as_quat()  # x,y,z,w
 
         (fk_msg.pose.orientation.x, fk_msg.pose.orientation.y,
@@ -133,7 +136,7 @@ if __name__ == "__main__":
     while (not rospy.is_shutdown()):
         _client = Client("BIGSS_ROLL_AMBF")
         _client.connect()
-        roll_act = BIGSS_ROLL_AMBF(_client, 'roll_base')
+        roll_act = BIGSS_ROLL_AMBF(_client, 'roll_act')
         time.sleep(0.5)
         if roll_act.base is not None:
             print("Found AMBF client and loaded")
@@ -144,7 +147,7 @@ if __name__ == "__main__":
             time.sleep(0.5)
 
     while (not rospy.is_shutdown()):
-        while (roll_act.base.get_num_joints() < 6):
+        while (roll_act.base.get_num_joints() < 1):
             if rospy.is_shutdown():
                 quit()
             print("Waiting for roll_act model to load...")

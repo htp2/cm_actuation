@@ -4,8 +4,8 @@
 # Generated on: 2022-04-25 04:58:52
 joints:
 - JOINT wrist_3_link-roll_base
-# high resolution path: meshes/ur5_to_roll_connection/high_res/
-# low resolution path: meshes/ur5_to_roll_connection/low_res/
+high resolution path: meshes/ur5_to_roll_connection/high_res/
+low resolution path: meshes/ur5_to_roll_connection/low_res/
 ignore inter-collision: true
 namespace: /ambf/env/ur5_to_roll_connection/
 JOINT wrist_3_link-roll_base:
