@@ -48,15 +48,12 @@ class BIGSS_ROLL_AMBF:
         self.base.set_joint_pos(0, jp[0])
 
     def servo_jv(self, jv):
-        print("in servo_jv")
         if self.use_simul_pos_for_vel:
             jp = [p + v/self.rate_hz for p,v in zip(self.measured_js(),jv)]
             self.servo_jp(jp)
             return
         if (not self.is_present()):
-            print("not pres")
             return
-        print(f"sending comm: {jv[0]}")
         self.base.set_joint_vel(0, jv[0])
 
     def measured_js(self):
@@ -73,7 +70,6 @@ class BIGSS_ROLL_AMBF:
         return self.base.get_joint_names()
 
     def sub_servo_jv_callback(self, msg):  # JointState
-        print("in servo_jv_callback")
         self.servo_jv_cmd = msg.velocity
 
     def sub_servo_jp_callback(self, msg):  # JointState
@@ -95,7 +91,6 @@ class BIGSS_ROLL_AMBF:
                 print("Tried to reconnect")
             self.publish_measured_js()
             self.FK(self.measured_js())
-            print(f"self.servo_jp_flag: {self.servo_jp_flag}")
             if self.servo_jp_flag:
                 self.servo_jp(self.servo_jp_cmd)
                 self.servo_jp_flag = False
