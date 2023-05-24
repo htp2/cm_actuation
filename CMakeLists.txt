@@ -26,5 +26,5 @@ catkin_package(
  CATKIN_DEPENDS ambf_msgs ambf_client canopen roscpp
 )
 
-add_executable(can_test code/can_test.cpp)
-target_link_libraries(can_test ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+# add_executable(can_test code/can_test.cpp)
+# target_link_libraries(can_test ${catkin_LIBRARIES} ${Boost_LIBRARIES})

@@ -118,9 +118,11 @@ class BIGSS_ROLL_AMBF:
         jac = np.zeros((6,1))
         jac[-1,0] = 1
         jac_msg = Float64MultiArray()
-        jac_msg.layout.dim.append(MultiArrayDimension())
-        jac_msg.layout.dim[0].size = 6
-        jac_msg.layout.dim[0].stride = 1
+        jac_msg.layout.dim.append(
+            MultiArrayDimension(label="rows", size=6, stride=1))
+        jac_msg.layout.dim.append(
+            MultiArrayDimension(label="cols", size=1, stride=6))        
+        jac_msg.layout.data_offset = 0
         jac_msg.data = jac.flatten()
         self.pub_jacobian.publish(jac_msg)
         return FK_T, jac
