@@ -5,7 +5,7 @@
   <include file="$(find cm_actuation)/launch/ambf_ur5_roll_act_setup_separate.launch"/>
 
   <!-- This makes the AMBF UR5 act like a CRTK robot -->
-  <!-- <node pkg="continuum_manip_volumetric_drilling_plugin" name="ambf_ros_ur5" type="ur5_ambf.py" output="screen"/>  -->
+  <node pkg="continuum_manip_volumetric_drilling_plugin" name="ambf_ros_ur5" type="ur5_ambf.py" output="screen"/> 
 
   <!-- This makes the AMBF roll actuator act like a CRTK robot -->
   <node pkg="cm_actuation" name="ambf_roll_actuator" type="ambf_roll_actuator.py" output="screen"/> 
