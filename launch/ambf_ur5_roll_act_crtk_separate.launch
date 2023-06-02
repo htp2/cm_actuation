@@ -9,5 +9,3 @@
 
   <!-- This makes the AMBF roll actuator act like a CRTK robot -->
   <node pkg="cm_actuation" name="ambf_roll_actuator" type="ambf_roll_actuator.py" output="screen"/> 
-
-</launch>

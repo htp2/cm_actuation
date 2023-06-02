@@ -12,13 +12,19 @@
 
   <build_depend>ambf_msgs</build_depend>
   <build_depend>ambf_client</build_depend>
+  <build_depend>canopen</build_depend>
+  <build_depend>roscpp</build_depend>
 
   <build_export_depend>ambf_msgs</build_export_depend>
   <build_export_depend>ambf_client</build_export_depend>
+  <build_export_depend>canopen</build_export_depend>
+  <build_export_depend>roscpp</build_export_depend>
 
   <exec_depend>ambf_msgs</exec_depend>
   <exec_depend>ambf_client</exec_depend>
   <exec_depend>rospy</exec_depend>
+  <exec_depend>canopen</exec_depend>
+  <exec_depend>roscpp</exec_depend>
 
   <export>
   </export>
