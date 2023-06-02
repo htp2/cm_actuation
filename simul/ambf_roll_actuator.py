@@ -145,6 +145,7 @@ if __name__ == "__main__":
 
     while (not rospy.is_shutdown()):
         while (roll_act.base.get_num_joints() < 1):
+            print(f"roll_act.base.get_num_joints(): {roll_act.base.get_num_joints()}")
             if rospy.is_shutdown():
                 quit()
             print("Waiting for roll_act model to load...")
