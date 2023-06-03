@@ -8,7 +8,7 @@ high resolution path: meshes/ur5_to_roll_connection/high_res/
 low resolution path: meshes/ur5_to_roll_connection/low_res/
 ignore inter-collision: true
 namespace: /ambf/env/ur5_to_roll_connection/
-  JOINT wrist_3_link-roll_base:
+JOINT wrist_3_link-roll_base:
   name: wrist_3_link-roll_base
   parent: BODY wrist_3_link
   child: BODY roll_base
