@@ -19,7 +19,11 @@ int main(int argc, char **argv)
     // create BIGSSMaxonCANROS object
     auto bigss_maxon_can_ros = std::make_unique<BIGSSMaxonCANROS>(ros_nh, can_device_name, supported_actuator_name, pub_hz);
 
+
+    ros::AsyncSpinner spinner(0);
+    spinner.start();
+    ros::waitForShutdown();
     // ros spin
-    ros::spin();
+    // ros::spin();
 }
 

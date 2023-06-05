@@ -8,8 +8,10 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::
     : m_cobid_map(cobid_map)
 {
     // pass in your own cobid map
-    canopen = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    canopen->Open();
+    canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_writer = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_reader->Open();
+    canopen_writer->Open();
 }
 
 BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &supported_actuator_name, const SocketCAN::Rate rate)
@@ -29,7 +31,11 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             {"csv_target", 0x403},
             {"cst_target", 0x503},
             {"op_mode", 0x203},
-            {"quick_stop", 0x203}};
+            {"quick_stop", 0x203},
+            {"read_pos_vel", 0x283},
+            {"read_cur_tor", 0x383},
+            {"read_stat_op", 0x183},
+            };
     }
     else
     {
@@ -37,13 +43,15 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
         return;
     }
 
-    canopen = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    canopen->Open();
+    canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_writer = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_reader->Open();
+    canopen_writer->Open();
 }
 
 BIGSSMaxonCAN::~BIGSSMaxonCAN()
 {
-    canopen->Close();
+    canopen_writer->Close();
 }
 
 bool BIGSSMaxonCAN::write_can_sequence(const CiA301::COBID cobid, const std::vector<CiA301::Object> cmds)
@@ -52,7 +60,7 @@ bool BIGSSMaxonCAN::write_can_sequence(const CiA301::COBID cobid, const std::vec
     // this sends all to the same cobid
     for (auto cmd : cmds)
     {
-        auto result = canopen->Write(cobid, cmd);
+        auto result = canopen_writer->Write(cobid, cmd);
         if (result != CANopen::ESUCCESS)
         {
             return false;
@@ -69,7 +77,7 @@ bool BIGSSMaxonCAN::write_can_sequence(const std::vector<std::pair<const CiA301:
     {
         for (auto cmd_obj : cmd.second)
         {
-            auto result = canopen->Write(cmd.first, cmd_obj);
+            auto result = canopen_writer->Write(cmd.first, cmd_obj);
             if (result != CANopen::ESUCCESS)
             {
                 return false;
@@ -108,7 +116,7 @@ bool BIGSSMaxonCAN::enable_PDO(const CiA301::Node::ID node_id)
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("enable_pdo", cobid))
         return false;
-    auto result = canopen->Write(cobid, CiA301::Object({0x01, node_id}));
+    auto result = canopen_writer->Write(cobid, CiA301::Object({0x01, node_id}));
     return result == CANopen::ESUCCESS;
 }
 
@@ -118,7 +126,7 @@ bool BIGSSMaxonCAN::disable_PDO(const CiA301::Node::ID node_id)
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("enable_pdo", cobid))
         return false;
-    auto result = canopen->Write(node_id, CiA301::Object({0x80, node_id}));
+    auto result = canopen_writer->Write(node_id, CiA301::Object({0x80, node_id}));
     return result == CANopen::ESUCCESS;
 }
 
@@ -139,7 +147,7 @@ bool BIGSSMaxonCAN::set_disable_state()
     if (!extract_cobid_if_supported("enable_state", cobid))
         return false;
     auto cmd = CiA301::Object({0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen->Write(cobid, cmd);
+    auto result = canopen_writer->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -161,7 +169,7 @@ bool BIGSSMaxonCAN::set_quick_stop()
     if (!extract_cobid_if_supported("quick_stop", cobid))
         return false;
     auto cmd = CiA301::Object({0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen->Write(cobid, cmd);
+    auto result = canopen_writer->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -171,7 +179,7 @@ bool BIGSSMaxonCAN::clear_quick_stop()
     if (!extract_cobid_if_supported("quick_stop", cobid))
         return false;
     auto cmd = CiA301::Object({0x0f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}); // 0x01 for safety (halt bit) instead of 0x00 (execute)
-    auto result = canopen->Write(cobid, cmd);
+    auto result = canopen_writer->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -181,7 +189,7 @@ bool BIGSSMaxonCAN::set_operation_mode(const SupportedOperatingModes mode)
     if (!extract_cobid_if_supported("op_mode", cobid))
         return false;
     auto cmd = CiA301::Object({0x0f, 0x01, mode, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen->Write(cobid, cmd);
+    auto result = canopen_writer->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -221,7 +229,7 @@ bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)
     auto velocity_rpm = velocity_rad_per_sec * M_RAD_PER_SEC_TO_RPM;
     auto command_int32 = static_cast<int32_t>(velocity_rpm * 10.0);
     auto cmd = pack_int32_into_can_obj(command_int32);
-    auto result = canopen->Write(cobid, cmd);
+    auto result = canopen_writer->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -238,3 +246,37 @@ bool BIGSSMaxonCAN::CST_command(const double torque)
     std::cout << "BIGSSMaxonCAN: CST_command not implemented yet." << std::endl;
     return false;
 }
+
+bool BIGSSMaxonCAN::read_and_parse_known_data()
+{
+    // TODO: NEED TO VERIFY THESE VALUES ARE CONVERTED CORRECTLY
+    CiA301::COBID cobid;
+    CiA301::Object object;
+    canopen_reader->Read(cobid, object);
+    if (cobid == m_cobid_map.at("read_pos_vel"))
+    {
+        // first 4 bytes are position, next 4 bytes are velocity, both in little endian
+        // position is in rotations, velocity is in 0.1 RPM
+        m_position_rad = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8) | (object.data.data[2] << 16) | (object.data.data[3] << 24)) * M_ROT_TO_RAD;
+        m_velocity_rad_per_sec = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8) | (object.data.data[6] << 16) | (object.data.data[7] << 24)) * M_RPM_TO_RAD_PER_SEC * 0.1;
+    }
+    else if (cobid == m_cobid_map.at("read_cur_tor"))
+    {
+        // first 4 bytes is current, next 2 bytes is torque, both in little endian
+        // TODO?: Current
+        m_torque = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8));
+    }
+    else if (cobid == m_cobid_map.at("read_stat_op"))
+    {
+        // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
+        //TODO?: Statusword
+        m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
+    }
+    else
+    {
+        return false;
+    }
+    return true;
+}
+
+

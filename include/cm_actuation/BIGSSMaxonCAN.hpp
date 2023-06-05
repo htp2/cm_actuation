@@ -43,11 +43,17 @@ class BIGSSMaxonCAN
         bool CSV_command(const double velocity_rad_per_sec);
         bool CSP_command(const double position_rad);
         bool CST_command(const double torque);
-        
+
+        bool read_and_parse_known_data();
+        double m_position_rad;
+        double m_velocity_rad_per_sec;
+        double m_torque;
 
     private:
         const double M_RAD_PER_SEC_TO_RPM = 60.0 / (2.0 * M_PI);
         const double M_RPM_TO_RAD_PER_SEC = 1.0 / M_RAD_PER_SEC_TO_RPM;
+        const double M_ROT_TO_RAD = 2.0 * M_PI;
+        const double M_RAD_TO_ROT = 1.0 / M_ROT_TO_RAD;
         std::map<std::string, CiA301::COBID> m_cobid_map;
         CiA301::Node::ID m_node_id;
         
@@ -59,7 +65,8 @@ class BIGSSMaxonCAN
 
 
     private:
-        std::unique_ptr<CANopen> canopen;
+        std::unique_ptr<CANopen> canopen_reader;
+        std::unique_ptr<CANopen> canopen_writer;
 
         SupportedOperatingModes m_operating_mode;
 

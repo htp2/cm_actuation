@@ -16,6 +16,9 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     // create timer to publish measured_js and measured_jv}
     m_pub_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/pub_hz), &BIGSSMaxonCANROS::pub_timer_cb, this);
 
+    //TODO: settable read / telemetry rate
+    m_read_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/1000.0), &BIGSSMaxonCANROS::read_timer_cb, this);
+
     m_maxon_can = std::make_unique<BIGSSMaxonCAN>(can_device_name, supported_actuator_name);
 
     //temp hardset TODO: make homing functions, etc.
@@ -66,11 +69,23 @@ void BIGSSMaxonCANROS::pub_timer_cb(const ros::TimerEvent& event)
     // publish measured_js and measured_jv
     sensor_msgs::JointState js_msg;
     js_msg.header.stamp = ros::Time::now();
-    js_msg.position.push_back(measured_js);
+    js_msg.header.frame_id = "measured_js";
+    js_msg.name.push_back("measured_js");
+    js_msg.position.push_back(m_measured_js);
     m_measured_js_pub.publish(js_msg);
 
     sensor_msgs::JointState jv_msg;
     jv_msg.header.stamp = ros::Time::now();
-    jv_msg.velocity.push_back(measured_jv);
+    jv_msg.header.frame_id = "measured_jv";
+    jv_msg.name.push_back("measured_jv");
+    jv_msg.velocity.push_back(m_measured_jv);
     m_measured_jv_pub.publish(jv_msg);
+}
+
+void BIGSSMaxonCANROS::read_timer_cb(const ros::TimerEvent& event)
+{
+    // TODO: this callback can hang becuase the "read" functionality is blocking. Hangs until the next CAN message is received.
+    m_maxon_can->read_and_parse_known_data();
+    m_measured_js = m_maxon_can->m_position_rad;
+    m_measured_jv = m_maxon_can->m_velocity_rad_per_sec;
 }

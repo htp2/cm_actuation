@@ -12,6 +12,7 @@ def main():
     while not rospy.is_shutdown():
         msg = JointState()
         msg.header.stamp = rospy.Time.now()
+        msg.name = ['joint1']
 
         max_amplitude_rpm = 20
         max_amplitude_radpsec = max_amplitude_rpm * 2 * math.pi / 60

@@ -23,11 +23,14 @@ private:
     LowlevelVelMode m_lowlevel_vel_mode = CSV; // default to CSV
     LowlevelPosMode m_lowlevel_pos_mode = PPM; // default to PPM
 
-    double measured_js = 0.0;
-    double measured_jv = 0.0;
+    double m_measured_js = 0.0;
+    double m_measured_jv = 0.0;
 
     ros::Timer m_pub_timer;
     void pub_timer_cb(const ros::TimerEvent &event);
+    ros::Timer m_read_timer;
+    void read_timer_cb(const ros::TimerEvent &event);
+
     void servo_jp_cb(const sensor_msgs::JointState &msg);
     void servo_jv_cb(const sensor_msgs::JointState &msg);
 };
