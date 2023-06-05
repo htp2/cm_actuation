@@ -5,8 +5,8 @@
 #include <cm_actuation/BIGSSMaxonCANROS.hpp>
 
 
-BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::string& can_device_name, const std::string& supported_actuator_name, double pub_hz)
-: m_rosNodeHandle(ros_nh)
+BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::string& can_device_name, const std::string& supported_actuator_name, double pub_hz, LowlevelVelMode vel_mode, LowlevelPosMode pos_mode)
+: m_rosNodeHandle(ros_nh), m_lowlevel_vel_mode(vel_mode), m_lowlevel_pos_mode(pos_mode)
 {
     m_measured_js_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_js", 1);
     m_measured_jv_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_jv", 1);
@@ -28,14 +28,37 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
 
 void BIGSSMaxonCANROS::servo_jp_cb(const sensor_msgs::JointState& msg)
 {
-    m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::PPM);
-    m_maxon_can->PPM_command(msg.position[0]);
+    if(m_lowlevel_pos_mode == LowlevelPosMode::CSP)
+    {
+        m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::CSP);
+        m_maxon_can->CSP_command(msg.position[0]);
+    }
+    else if (m_lowlevel_pos_mode == LowlevelPosMode::PPM)
+    {
+        m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::PPM);
+        m_maxon_can->PPM_command(msg.position[0]);
+    }
+    else{
+        ROS_ERROR("BIGSSMaxonCANROS: unsupported lowlevel_pos_mode");
+    }
 }
 
 void BIGSSMaxonCANROS::servo_jv_cb(const sensor_msgs::JointState& msg)
 {
-    m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::CSV);
-    m_maxon_can->CSV_command(msg.velocity[0]);
+    if(m_lowlevel_vel_mode == LowlevelVelMode::CSV)
+    {
+        m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::CSV);
+        m_maxon_can->CSV_command(msg.velocity[0]);
+
+    }
+    else if (m_lowlevel_vel_mode == LowlevelVelMode::PVM)
+    {
+        m_maxon_can->set_operation_mode(BIGSSMaxonCAN::SupportedOperatingModes::PVM);
+        m_maxon_can->PVM_command(msg.velocity[0]);
+    }
+    else{
+        ROS_ERROR("BIGSSMaxonCANROS: unsupported lowlevel_vel_mode");
+    }
 }
 
 void BIGSSMaxonCANROS::pub_timer_cb(const ros::TimerEvent& event)

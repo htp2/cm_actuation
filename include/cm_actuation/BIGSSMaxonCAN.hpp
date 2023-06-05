@@ -10,6 +10,7 @@
 // Basic CANopen functionality is borrowed from Simon Leonard's maxon_rtt package. That package was not used here as it uses OROCOS which is not 
 // compatabile with the software framework (utilizing ROS Noetic) used for the rest of the robot system code at the time of writing.
 
+
 class BIGSSMaxonCAN
 {
     public:
@@ -23,6 +24,7 @@ class BIGSSMaxonCAN
             PPM = 0x01, // profile position mode
             PVM = 0x03, // profile velocity mode
             HMM = 0x06, // homing mode
+            CSP = 0x08, // cyclic synchronous position mode
             CSV = 0x09, // cyclic synchronous velocity mode
             CST = 0x0A, // cyclic synchronous torque mode
         };
