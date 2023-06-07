@@ -3,9 +3,11 @@ project (cm_actuation)
 
 set(CMAKE_CXX_STANDARD 14)
 
+add_subdirectory(code/canopen)
+
 # find_package(AMBF)
 find_package(Boost COMPONENTS program_options)
-find_package(catkin COMPONENTS 
+find_package(catkin COMPONENTS REQUIRED
 ambf_msgs 
 ambf_client 
 rospy 
