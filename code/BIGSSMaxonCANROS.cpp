@@ -12,6 +12,8 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_measured_jv_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_jv", 1);
     m_servo_jp_sub = m_rosNodeHandle.subscribe("servo_jp", 1, &BIGSSMaxonCANROS::servo_jp_cb, this);
     m_servo_jv_sub = m_rosNodeHandle.subscribe("servo_jv", 1, &BIGSSMaxonCANROS::servo_jv_cb, this);
+    m_enable_srv = m_rosNodeHandle.advertiseService("enable", &BIGSSMaxonCANROS::enable_srv_cb, this);
+    m_disable_srv = m_rosNodeHandle.advertiseService("disable", &BIGSSMaxonCANROS::disable_srv_cb, this);
 
     // create timer to publish measured_js and measured_jv}
     m_pub_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/pub_hz), &BIGSSMaxonCANROS::pub_timer_cb, this);
@@ -19,7 +21,10 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     //TODO: settable read / telemetry rate
     m_read_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/1000.0), &BIGSSMaxonCANROS::read_timer_cb, this);
 
+    // create BIGSSMaxonCAN object
+    ROS_INFO("BIGSSMaxonCANROS: Attempting to create BIGSSMaxonCAN object");
     m_maxon_can = std::make_unique<BIGSSMaxonCAN>(can_device_name, supported_actuator_name);
+    ROS_INFO("BIGSSMaxonCANROS: BIGSSMaxonCAN object created");
 
     //temp hardset TODO: make homing functions, etc.
     m_maxon_can->enable_PDO();
@@ -88,4 +93,24 @@ void BIGSSMaxonCANROS::read_timer_cb(const ros::TimerEvent& event)
     m_maxon_can->read_and_parse_known_data();
     m_measured_js = m_maxon_can->m_position_rad;
     m_measured_jv = m_maxon_can->m_velocity_rad_per_sec;
+}
+
+bool BIGSSMaxonCANROS::enable_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+    res.success = m_maxon_can->set_enable_state();
+    if (res.success)
+        res.message = "BIGSSMaxonCANROS: enabled";
+    else
+        res.message = "BIGSSMaxonCANROS: failed to enable";
+    return true;
+}
+
+bool BIGSSMaxonCANROS::disable_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+    res.success = m_maxon_can->set_disable_state();
+    if (res.success)
+        res.message = "BIGSSMaxonCANROS: disabled";
+    else
+        res.message = "BIGSSMaxonCANROS: failed to disable";
+    return true;
 }

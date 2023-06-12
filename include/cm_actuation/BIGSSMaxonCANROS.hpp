@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
+#include <std_srvs/Trigger.h>
 #include <cm_actuation/BIGSSMaxonCAN.hpp>
 
 // ROS1 ~CRTK compatible driver for BIGSS Maxon CAN
@@ -19,6 +20,8 @@ private:
     ros::Publisher m_measured_jv_pub;
     ros::Subscriber m_servo_jp_sub;
     ros::Subscriber m_servo_jv_sub;
+    ros::ServiceServer m_enable_srv;
+    ros::ServiceServer m_disable_srv;
 
     LowlevelVelMode m_lowlevel_vel_mode = CSV; // default to CSV
     LowlevelPosMode m_lowlevel_pos_mode = PPM; // default to PPM
@@ -33,4 +36,6 @@ private:
 
     void servo_jp_cb(const sensor_msgs::JointState &msg);
     void servo_jv_cb(const sensor_msgs::JointState &msg);
+    bool enable_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+    bool disable_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 };
