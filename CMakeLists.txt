@@ -7,7 +7,7 @@ add_subdirectory(code/canopen)
 
 # find_package(AMBF)
 find_package(Boost COMPONENTS program_options)
-find_package(catkin COMPONENTS REQUIRED
+find_package(catkin COMPONENTS 
 ambf_msgs 
 ambf_client 
 rospy 
