@@ -1,5 +1,7 @@
 #include <iostream>
 #include <memory>
+#include <thread>
+#include <chrono>
 
 #include "canopen.hpp"
 #include <cm_actuation/BIGSSMaxonCAN.hpp>
@@ -27,6 +29,10 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             {"read_cur_tor", 0x383},
             {"read_stat_op", 0x183},
         };
+        m_homing_sequence = {
+            CiA301::Object({0x0F, 0x01, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
+            CiA301::Object({0x0F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
+            CiA301::Object({0x1F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00})};
     }
     else
     {
@@ -46,14 +52,17 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::
 void BIGSSMaxonCAN::initialize_can(const std::string &devicename, const SocketCAN::Rate rate)
 {
     canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    canopen_writer = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_commander = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    canopen_rtr = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
+    
     canopen_reader->Open();
-    canopen_writer->Open();
+    canopen_commander->Open();
+    canopen_rtr->Open();
 }
 
 BIGSSMaxonCAN::~BIGSSMaxonCAN()
 {
-    canopen_writer->Close();
+    canopen_commander->Close();
 }
 
 bool BIGSSMaxonCAN::write_can_sequence(const CiA301::COBID cobid, const std::vector<CiA301::Object> cmds)
@@ -62,11 +71,13 @@ bool BIGSSMaxonCAN::write_can_sequence(const CiA301::COBID cobid, const std::vec
     // this sends all to the same cobid
     for (auto cmd : cmds)
     {
-        auto result = canopen_writer->Write(cobid, cmd);
+        auto result = canopen_commander->Write(cobid, cmd);
         if (result != CANopen::ESUCCESS)
         {
             return false;
         }
+        // put a millisecond delay between each command
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     return true;
 }
@@ -79,11 +90,12 @@ bool BIGSSMaxonCAN::write_can_sequence(const std::vector<std::pair<const CiA301:
     {
         for (auto cmd_obj : cmd.second)
         {
-            auto result = canopen_writer->Write(cmd.first, cmd_obj);
+            auto result = canopen_commander->Write(cmd.first, cmd_obj);
             if (result != CANopen::ESUCCESS)
             {
                 return false;
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
     return true;
@@ -129,7 +141,7 @@ bool BIGSSMaxonCAN::enable_PDO(const CiA301::Node::ID node_id)
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("enable_pdo", cobid))
         return false;
-    auto result = canopen_writer->Write(cobid, CiA301::Object({0x01, node_id}));
+    auto result = canopen_commander->Write(cobid, CiA301::Object({0x01, node_id}));
     return result == CANopen::ESUCCESS;
 }
 
@@ -139,7 +151,7 @@ bool BIGSSMaxonCAN::disable_PDO(const CiA301::Node::ID node_id)
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("enable_pdo", cobid))
         return false;
-    auto result = canopen_writer->Write(node_id, CiA301::Object({0x80, node_id}));
+    auto result = canopen_commander->Write(node_id, CiA301::Object({0x80, node_id}));
     return result == CANopen::ESUCCESS;
 }
 
@@ -160,20 +172,8 @@ bool BIGSSMaxonCAN::set_disable_state()
     if (!extract_cobid_if_supported("enable_state", cobid))
         return false;
     auto cmd = CiA301::Object({0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen_writer->Write(cobid, cmd);
+    auto result = canopen_commander->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
-}
-
-bool BIGSSMaxonCAN::perform_canned_homing()
-{
-    CiA301::COBID cobid;
-    if (!extract_cobid_if_supported("homing", cobid))
-        return false;
-    auto cmd1 = CiA301::Object({0x0f, 0x01, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}); // set operating mode to homing
-    auto cmd2 = CiA301::Object({0x0f, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}); // ready
-    auto cmd3 = CiA301::Object({0x1f, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}); // execute (set to 10 RPM)
-    auto result = write_can_sequence(cobid, {cmd1, cmd2, cmd3});
-    return result;
 }
 
 bool BIGSSMaxonCAN::set_quick_stop()
@@ -182,7 +182,7 @@ bool BIGSSMaxonCAN::set_quick_stop()
     if (!extract_cobid_if_supported("quick_stop", cobid))
         return false;
     auto cmd = CiA301::Object({0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen_writer->Write(cobid, cmd);
+    auto result = canopen_commander->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -192,7 +192,7 @@ bool BIGSSMaxonCAN::clear_quick_stop()
     if (!extract_cobid_if_supported("quick_stop", cobid))
         return false;
     auto cmd = CiA301::Object({0x0f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}); // 0x01 for safety (halt bit) instead of 0x00 (execute)
-    auto result = canopen_writer->Write(cobid, cmd);
+    auto result = canopen_commander->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -202,7 +202,7 @@ bool BIGSSMaxonCAN::set_operation_mode(const SupportedOperatingModes mode)
     if (!extract_cobid_if_supported("op_mode", cobid))
         return false;
     auto cmd = CiA301::Object({0x0f, 0x01, mode, 0x00, 0x00, 0x00, 0x00, 0x00});
-    auto result = canopen_writer->Write(cobid, cmd);
+    auto result = canopen_commander->Write(cobid, cmd);
     auto bool_res = result == CANopen::ESUCCESS;
     if (bool_res)
         m_operating_mode = mode;
@@ -249,7 +249,7 @@ bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)
     auto velocity_rpm = velocity_rad_per_sec * M_RAD_PER_SEC_TO_RPM;
     auto command_int32 = static_cast<int32_t>(velocity_rpm * 10.0);
     auto cmd = pack_int32_into_can_obj(command_int32);
-    auto result = canopen_writer->Write(cobid, cmd);
+    auto result = canopen_commander->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
 }
 
@@ -273,24 +273,33 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     CiA301::COBID cobid;
     CiA301::Object object;
     canopen_reader->Read(cobid, object);
-    if (cobid == m_cobid_map.at("read_pos_vel"))
+    
+    // if object is empty, must be a transmit command so just return true
+    if (object.data.data.empty())
+        return true;
+
+    // make sure cobid is in our map
+    if (m_cobid_map.find("read_pos_vel") != m_cobid_map.end() && cobid == m_cobid_map.at("read_pos_vel"))
     {
         // first 4 bytes are position, next 4 bytes are velocity, both in little endian
         // position is in rotations, velocity is in 0.1 RPM
         m_position_rad = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8) | (object.data.data[2] << 16) | (object.data.data[3] << 24)) * M_ROT_TO_RAD;
         m_velocity_rad_per_sec = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8) | (object.data.data[6] << 16) | (object.data.data[7] << 24)) * M_RPM_TO_RAD_PER_SEC * 0.1;
+        return true;
     }
-    else if (cobid == m_cobid_map.at("read_cur_tor"))
+    else if (m_cobid_map.find("read_cur_tor") != m_cobid_map.end() && cobid == m_cobid_map.at("read_cur_tor"))
     {
         // first 4 bytes is current, next 2 bytes is torque, both in little endian
         // TODO?: Current
         m_torque = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8));
+        return true;
     }
-    else if (cobid == m_cobid_map.at("read_stat_op"))
+    else if (m_cobid_map.find("read_stat_op") != m_cobid_map.end() && cobid == m_cobid_map.at("read_stat_op"))
     {
         // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
         //TODO?: Statusword
         m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
+        return true;
     }
     else
     {
@@ -299,4 +308,43 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     return true;
 }
 
+bool BIGSSMaxonCAN::send_transmit_requests()
+{
+    CiA301::COBID cobid;
+    CiA301::Object empty_obj;
+    if (extract_cobid_if_supported("read_pos_vel", cobid))
+        canopen_rtr->Write(cobid, empty_obj);
+    if (extract_cobid_if_supported("read_cur_tor", cobid))
+        canopen_rtr->Write(cobid, empty_obj);
+    if (extract_cobid_if_supported("read_stat_op", cobid))
+        canopen_rtr->Write(cobid, empty_obj);
+    return true;
+}
 
+bool BIGSSMaxonCAN::perform_homing_sequence()
+{
+    // if m_homing_sequence is empty we assume that homing is not required for this actuator and return true    
+    if (m_homing_sequence.empty())
+    {
+        std::cerr << "BIGSSMaxonCAN: homing sequence is empty. Will not perform homing." << std::endl;
+        return false;
+    }
+    // if we are already homed we will not home again
+    if (m_is_homed)
+    {
+        std::cerr << "BIGSSMaxonCAN: already homed. Will not perform homing." << std::endl;
+        return false;
+    }
+    CiA301::COBID cobid;
+    if (!extract_cobid_if_supported("homing", cobid))
+    {
+        std::cerr << "BIGSSMaxonCAN: homing cobid not found. Will not perform homing." << std::endl;
+        return false;
+    }
+
+    // perform homing sequence
+    auto result = write_can_sequence(cobid, m_homing_sequence);
+    if (result)
+        m_is_homed = true;
+    return result;
+}

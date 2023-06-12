@@ -34,7 +34,6 @@ class BIGSSMaxonCAN
         bool disable_PDO(const CiA301::Node::ID node_id=0x00);
         bool set_enable_state();
         bool set_disable_state();
-        bool perform_canned_homing();
 
         bool set_quick_stop();
         bool clear_quick_stop();
@@ -47,9 +46,12 @@ class BIGSSMaxonCAN
         bool CST_command(const double torque);
 
         bool read_and_parse_known_data();
+        bool send_transmit_requests();
+        bool perform_homing_sequence();
         double m_position_rad;
         double m_velocity_rad_per_sec;
         double m_torque;
+        bool m_is_homed = false;
 
     private:
         const double M_RAD_PER_SEC_TO_RPM = 60.0 / (2.0 * M_PI);
@@ -58,7 +60,8 @@ class BIGSSMaxonCAN
         const double M_RAD_TO_ROT = 1.0 / M_ROT_TO_RAD;
         std::map<std::string, CiA301::COBID> m_cobid_map;
         CiA301::Node::ID m_node_id;
-        
+        std::vector<CiA301::Object> m_homing_sequence = {};
+
         bool write_can_sequence(const CiA301::COBID cobid, const std::vector<CiA301::Object> cmds);
         bool write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>>& cmds);
         CiA301::Object pack_int32_into_can_obj(const int32_t value);
@@ -69,7 +72,8 @@ class BIGSSMaxonCAN
 
     private:
         std::unique_ptr<CANopen> canopen_reader;
-        std::unique_ptr<CANopen> canopen_writer;
+        std::unique_ptr<CANopen> canopen_commander;
+        std::unique_ptr<CANopen> canopen_rtr;
 
         SupportedOperatingModes m_operating_mode;
 

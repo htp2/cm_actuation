@@ -18,12 +18,16 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_disable_srv = m_rosNodeHandle.advertiseService("disable", &BIGSSMaxonCANROS::disable_srv_cb, this);
     m_set_cmd_mode_vel_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_vel", &BIGSSMaxonCANROS::set_cmd_mode_vel_cb, this);
     m_set_cmd_mode_pos_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_pos", &BIGSSMaxonCANROS::set_cmd_mode_pos_cb, this);
+    m_home_srv = m_rosNodeHandle.advertiseService("home", &BIGSSMaxonCANROS::home_srv_cb, this);
 
     // create timer to publish measured_js
     m_pub_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/pub_hz), &BIGSSMaxonCANROS::pub_timer_cb, this);
 
-    //TODO?: settable read / telemetry rate
-    m_read_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/1000.0), &BIGSSMaxonCANROS::read_timer_cb, this);
+    // Try to read as fast as possible / telemetry rate
+    m_read_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/10000.0), &BIGSSMaxonCANROS::read_timer_cb, this);
+
+    // create a timer for RTR (this is where you can periodically ping the device to send out updates)
+    m_rtr_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/100.0), &BIGSSMaxonCANROS::rtr_timer_cb, this);
 
     //TODO?: settable velocity timeout rate
     m_vel_cmd_timeout_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0), &BIGSSMaxonCANROS::vel_cmd_timeout_timer_cb, this);
@@ -132,6 +136,11 @@ void BIGSSMaxonCANROS::vel_cmd_timeout_timer_cb(const ros::TimerEvent& event)
     }
 }
 
+void BIGSSMaxonCANROS::rtr_timer_cb(const ros::TimerEvent& event)
+{
+    m_maxon_can->send_transmit_requests();
+}
+
 bool BIGSSMaxonCANROS::enable_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
 {
     res.success = m_maxon_can->set_enable_state();
@@ -169,5 +178,15 @@ bool BIGSSMaxonCANROS::set_cmd_mode_pos_cb(std_srvs::Trigger::Request& req, std_
         res.message = "BIGSSMaxonCANROS: set_cmd_mode_pos";
     else
         res.message = "BIGSSMaxonCANROS: failed to set_cmd_mode_pos";
+    return true;
+}
+
+bool BIGSSMaxonCANROS::home_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+    res.success = m_maxon_can->perform_homing_sequence();
+    if (res.success)
+        res.message = "BIGSSMaxonCANROS: homing sequence started";
+    else
+        res.message = "BIGSSMaxonCANROS: failed to start homing sequence";
     return true;
 }
