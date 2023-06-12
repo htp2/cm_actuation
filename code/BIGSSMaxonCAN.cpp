@@ -4,16 +4,7 @@
 #include "canopen.hpp"
 #include <cm_actuation/BIGSSMaxonCAN.hpp>
 
-BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const SocketCAN::Rate rate)
-    : m_cobid_map(cobid_map)
-{
-    // pass in your own cobid map
-    canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    canopen_writer = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    canopen_reader->Open();
-    canopen_writer->Open();
-}
-
+// Preferred constructor: use one of the supported actuators
 BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &supported_actuator_name, const SocketCAN::Rate rate)
 {
     if (supported_actuator_name == "roll_actuator")
@@ -35,14 +26,25 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             {"read_pos_vel", 0x283},
             {"read_cur_tor", 0x383},
             {"read_stat_op", 0x183},
-            };
+        };
     }
     else
     {
         std::cerr << "BIGSSMaxonCAN: supported_actuator_name not recognized. Will not create." << std::endl;
         return;
     }
+    initialize_can(devicename, rate);
+}
 
+// Alternate constructor: use your own cobid map and node id
+BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate)
+    : m_node_id(node_id), m_cobid_map(cobid_map)
+{
+    initialize_can(devicename, rate);
+}
+
+void BIGSSMaxonCAN::initialize_can(const std::string &devicename, const SocketCAN::Rate rate)
+{
     canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
     canopen_writer = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
     canopen_reader->Open();

@@ -14,8 +14,8 @@
 class BIGSSMaxonCAN
 {
     public:
-        BIGSSMaxonCAN(const std::string& devicename, const std::map<std::string, CiA301::COBID> cobid_map, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
         BIGSSMaxonCAN(const std::string& devicename, const std::string& supported_actuator_name, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
+        BIGSSMaxonCAN(const std::string& devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
 
         ~BIGSSMaxonCAN();
       
@@ -28,6 +28,8 @@ class BIGSSMaxonCAN
             CSV = 0x09, // cyclic synchronous velocity mode
             CST = 0x0A, // cyclic synchronous torque mode
         };
+
+        void initialize_can(const std::string& devicename, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
         bool enable_PDO(const CiA301::Node::ID node_id=0x00);
         bool disable_PDO(const CiA301::Node::ID node_id=0x00);
         bool set_enable_state();
