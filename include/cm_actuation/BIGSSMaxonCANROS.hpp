@@ -22,7 +22,6 @@ private:
     std::unique_ptr<BIGSSMaxonCAN> m_maxon_can;
     ros::NodeHandle m_rosNodeHandle;
     ros::Publisher m_measured_js_pub;
-    ros::Publisher m_measured_jv_pub;
     ros::Subscriber m_servo_jp_sub;
     ros::Subscriber m_servo_jv_sub;
     ros::ServiceServer m_enable_srv;

@@ -12,7 +12,6 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
 : m_rosNodeHandle(ros_nh), m_lowlevel_vel_mode(vel_mode), m_lowlevel_pos_mode(pos_mode)
 {
     m_measured_js_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_js", 1);
-    m_measured_jv_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_jv", 1);
     m_servo_jp_sub = m_rosNodeHandle.subscribe("servo_jp", 1, &BIGSSMaxonCANROS::servo_jp_cb, this);
     m_servo_jv_sub = m_rosNodeHandle.subscribe("servo_jv", 1, &BIGSSMaxonCANROS::servo_jv_cb, this);
     m_enable_srv = m_rosNodeHandle.advertiseService("enable", &BIGSSMaxonCANROS::enable_srv_cb, this);
@@ -20,7 +19,7 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_set_cmd_mode_vel_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_vel", &BIGSSMaxonCANROS::set_cmd_mode_vel_cb, this);
     m_set_cmd_mode_pos_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_pos", &BIGSSMaxonCANROS::set_cmd_mode_pos_cb, this);
 
-    // create timer to publish measured_js and measured_jv}
+    // create timer to publish measured_js
     m_pub_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/pub_hz), &BIGSSMaxonCANROS::pub_timer_cb, this);
 
     //TODO?: settable read / telemetry rate
@@ -107,17 +106,12 @@ void BIGSSMaxonCANROS::pub_timer_cb(const ros::TimerEvent& event)
     // publish measured_js and measured_jv
     sensor_msgs::JointState js_msg;
     js_msg.header.stamp = ros::Time::now();
-    js_msg.header.frame_id = "measured_js";
-    js_msg.name.push_back("measured_js");
+    js_msg.header.frame_id = "bigss_maxon_can"; // TODO replace with name
+    js_msg.name.push_back("bigss_maxon_can");
     js_msg.position.push_back(m_measured_js);
+    js_msg.velocity.push_back(m_measured_jv);
+    //TODO: effort
     m_measured_js_pub.publish(js_msg);
-
-    sensor_msgs::JointState jv_msg;
-    jv_msg.header.stamp = ros::Time::now();
-    jv_msg.header.frame_id = "measured_jv";
-    jv_msg.name.push_back("measured_jv");
-    jv_msg.velocity.push_back(m_measured_jv);
-    m_measured_jv_pub.publish(jv_msg);
 }
 
 void BIGSSMaxonCANROS::read_timer_cb(const ros::TimerEvent& event)
