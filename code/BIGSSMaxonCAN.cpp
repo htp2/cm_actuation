@@ -110,6 +110,17 @@ bool BIGSSMaxonCAN::extract_cobid_if_supported(const std::string &cmd_name, CiA3
     }
 }
 
+bool BIGSSMaxonCAN::check_if_in_correct_mode(const SupportedOperatingModes mode)
+{
+    // helper function to check if in correct mode before sending command
+    if (m_operating_mode != mode)
+    {
+        std::cerr << "BIGSSMaxonCAN: Not in correct mode to send command. Will not execute command." << std::endl;
+        return false;
+    }
+    return true;
+}
+
 bool BIGSSMaxonCAN::enable_PDO(const CiA301::Node::ID node_id)
 {
     // node_id = 0x00 means all nodes, or you can specify a node_id
@@ -190,12 +201,16 @@ bool BIGSSMaxonCAN::set_operation_mode(const SupportedOperatingModes mode)
         return false;
     auto cmd = CiA301::Object({0x0f, 0x01, mode, 0x00, 0x00, 0x00, 0x00, 0x00});
     auto result = canopen_writer->Write(cobid, cmd);
-    return result == CANopen::ESUCCESS;
+    auto bool_res = result == CANopen::ESUCCESS;
+    if (bool_res)
+        m_operating_mode = mode;
+    return bool_res;
 }
 
 bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
 {
-    // TODO: Check op mode / should switch or just error out if not in PVM mode?
+    if (!check_if_in_correct_mode(SupportedOperatingModes::PVM))
+        return false;
 
     // motor firmware set to accept an int32 for velocity in 0.1*RPM i.e. input of 10 --> 1 RPM
     CiA301::COBID cobid1;
@@ -217,12 +232,15 @@ bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
 bool BIGSSMaxonCAN::PPM_command(const double position_rad)
 {
     // print warning not implemented
-    std::cout << "BIGSSMaxonCAN: PPM_command not implemented yet." << std::endl;
+    std::cout << "BIGSSMaxonCAN: PPM_command not implemented yet." << std::endl;    
     return false;
 }
 
 bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)
 {
+    if (!check_if_in_correct_mode(SupportedOperatingModes::CSV))
+        return false;
+    
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("csv_target", cobid))
         return false;

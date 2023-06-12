@@ -19,6 +19,9 @@ There are a couple of useful can utilities for debugging
 Continually print all messages on a CAN bus:
 ```candump can0```
 
+Want to see candump but exclude a certain ID (e.g. 2A0)?... probably a way to use candump masks as well.
+```candump can0 | grep -v '2A0'```
+
 Send a message on a CAN bus:
 ```cansend can0 <id>#<msg>```
 
@@ -30,4 +33,3 @@ Check to see info on can bus (e.g. if it is up or down, etc):
 
 Turn off a CAN bus (e.g. for the old turn it off and back on trick):
 ```ip link set can0 down```
-

@@ -61,6 +61,7 @@ class BIGSSMaxonCAN
         bool write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>>& cmds);
         CiA301::Object pack_int32_into_can_obj(const int32_t value);
         bool extract_cobid_if_supported(const std::string& cmd_name, CiA301::COBID& cobid);
+        bool check_if_in_correct_mode(const SupportedOperatingModes mode);
 
 
 
