@@ -4,8 +4,6 @@
 #include <cm_actuation/BIGSSMaxonCAN.hpp>
 
 // ROS1 ~CRTK compatible driver for BIGSS Maxon CAN
-// enum LowlevelVelMode{PVM, CSV};
-// enum LowlevelPosMode{PPM, CSP};
 
 // this is just for readability
 typedef BIGSSMaxonCAN::SupportedOperatingModes OpModes;
@@ -22,6 +20,9 @@ private:
     std::unique_ptr<BIGSSMaxonCAN> m_maxon_can;
     ros::NodeHandle m_rosNodeHandle;
     ros::Publisher m_measured_js_pub;
+    ros::Publisher m_is_homed_pub;
+    ros::Publisher m_is_enabled_pub; // FUTURE: could support/implement full state machine, or at least crtk compliant operating_state
+
     ros::Subscriber m_servo_jp_sub;
     ros::Subscriber m_servo_jv_sub;
     ros::ServiceServer m_enable_srv;
@@ -30,17 +31,19 @@ private:
     ros::ServiceServer m_set_cmd_mode_pos_srv;
     ros::ServiceServer m_home_srv;
 
-    OpModes m_lowlevel_vel_mode = OpModes::CSV; // default to CSV
-    OpModes m_lowlevel_pos_mode = OpModes::PPM; // default to PPM
+    OpModes m_lowlevel_vel_mode = OpModes::CSV; // default to CSV //FUTURE: make this configurable
+    OpModes m_lowlevel_pos_mode = OpModes::PPM; // default to PPM //FUTURE: make this configurable
 
-    double m_measured_js = 0.0;
-    double m_measured_jv = 0.0;
+    double m_measured_jp = 0.0; // joint position (rad)
+    double m_measured_jv = 0.0; // joint velocity (rad/s)
+    double m_measured_jt = 0.0; // joint torque (Nm)
+    bool m_is_homed = false;
 
     bool servo_jp(const double position_rad);
     bool servo_jv(const double velocity_rad_per_sec);
 
     ros::Timer m_pub_timer; // how often to publish ros messages
-    void pub_timer_cb(const ros::TimerEvent &event);
+    void pub_timer_cb(const ros::TimerEvent &event); // FUTURE: Could slow down publishing rate for some info (e.g. is_homed, is_enabled)
     ros::Timer m_read_timer; // how often to read from can (you should make arbitrarily high to read as fast as possible)
     void read_timer_cb(const ros::TimerEvent &event);
     ros::Timer m_rtr_timer; // how often to send RTR requests (this forces updates from device even if nothing changed) Useful for e.g. detecting state on startup

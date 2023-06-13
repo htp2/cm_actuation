@@ -14,8 +14,12 @@
 class BIGSSMaxonCAN
 {
     public:
+        // This is the preferred constructor (i.e. you use a 'hardcoded' supported / known actuator)
         BIGSSMaxonCAN(const std::string& devicename, const std::string& supported_actuator_name, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
-        BIGSSMaxonCAN(const std::string& devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate = SocketCAN::Rate::RATE_1000);
+        
+        // This is the alternate constructor where you can specify all the properties needed yourself (e.g. if you have a new actuator that is not yet supported and don't add it to supported actuator list and recompile)
+        BIGSSMaxonCAN(const std::string& devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, 
+            const SocketCAN::Rate rate, const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec);
 
         ~BIGSSMaxonCAN();
       
@@ -50,17 +54,22 @@ class BIGSSMaxonCAN
         bool perform_homing_sequence();
         double m_position_rad;
         double m_velocity_rad_per_sec;
-        double m_torque;
-        double m_current;
+        double m_torque_nm;
+        double m_current_amp;
         bool m_is_homed = false;
+        bool m_is_enabled = false;
+        bool m_is_faulted = false;
+        bool m_is_quick_stopped = false;
 
     private:
         const double M_RAD_PER_SEC_TO_RPM = 60.0 / (2.0 * M_PI);
         const double M_RPM_TO_RAD_PER_SEC = 1.0 / M_RAD_PER_SEC_TO_RPM;
         const double M_ROT_TO_RAD = 2.0 * M_PI;
-        const double M_RAD_TO_ROT = 1.0 / M_ROT_TO_RAD;
+        const double M_RAD_TO_ROT = 1.0 / M_ROT_TO_RAD; 
+        const double M_MILLIX_TO_X = 1.0 / 1000.0; // milli to base SI
         std::map<std::string, CiA301::COBID> m_cobid_map;
         CiA301::Node::ID m_node_id;
+        bool m_needs_homing = true; // set to false if, for example, you have an absolute encoder or don't care about homing
         std::vector<CiA301::Object> m_homing_sequence = {};
         double m_encoder_to_rad;
         double m_maxonvel_to_rad_per_sec;
@@ -70,6 +79,7 @@ class BIGSSMaxonCAN
         CiA301::Object pack_int32_into_can_obj(const int32_t value);
         bool extract_cobid_if_supported(const std::string& cmd_name, CiA301::COBID& cobid);
         bool check_if_in_correct_mode(const SupportedOperatingModes mode);
+        bool check_is_homed_before_moving();
 
 
 

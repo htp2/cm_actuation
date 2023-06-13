@@ -6,7 +6,7 @@
 #include "canopen.hpp"
 #include <cm_actuation/BIGSSMaxonCAN.hpp>
 
-// Preferred constructor: use one of the supported actuators
+// This is the preferred constructor (i.e. you use a 'hardcoded' supported / known actuator)
 BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &supported_actuator_name, const SocketCAN::Rate rate)
 {
     if (supported_actuator_name == "roll_actuator")
@@ -29,6 +29,7 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             {"read_cur_tor", 0x383},
             {"read_stat_op", 0x183},
         };
+        m_needs_homing = true; // this would be false if, for example you have an absolute encoder
         m_homing_sequence = {
             CiA301::Object({0x0F, 0x01, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
             CiA301::Object({0x0F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
@@ -44,9 +45,10 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
     initialize_can(devicename, rate);
 }
 
-// Alternate constructor: use your own cobid map and node id
-BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate)
-    : m_node_id(node_id), m_cobid_map(cobid_map)
+// This is the alternate constructor where you can specify all the properties needed yourself (e.g. if you have a new actuator that is not yet supported and don't add it to supported actuator list and recompile)
+BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate, 
+    const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec)
+    : m_node_id(node_id), m_cobid_map(cobid_map), m_needs_homing(needs_homing), m_homing_sequence(homing_sequence), m_encoder_to_rad(encoder_to_rad), m_maxonvel_to_rad_per_sec(maxonvel_to_rad_per_sec)
 {
     initialize_can(devicename, rate);
 }
@@ -213,10 +215,12 @@ bool BIGSSMaxonCAN::set_operation_mode(const SupportedOperatingModes mode)
 
 bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
 {
+    if (!check_is_homed_before_moving())
+        return false;
+
     if (!check_if_in_correct_mode(SupportedOperatingModes::PVM))
         return false;
 
-    // motor firmware set to accept an int32 for velocity in 0.1*RPM i.e. input of 10 --> 1 RPM
     CiA301::COBID cobid1;
     if (!extract_cobid_if_supported("pvm_target", cobid1))
         return false;
@@ -242,6 +246,9 @@ bool BIGSSMaxonCAN::PPM_command(const double position_rad)
 
 bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)
 {
+    if (!check_is_homed_before_moving())
+        return false;
+
     if (!check_if_in_correct_mode(SupportedOperatingModes::CSV))
         return false;
 
@@ -292,21 +299,25 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     else if (m_cobid_map.find("read_cur_tor") != m_cobid_map.end() && cobid == m_cobid_map.at("read_cur_tor"))
     {
         // first 4 bytes is current, next 2 bytes is torque, both in little endian
-        // TODO?: Current
-        m_current = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8 | (object.data.data[2] << 16) | (object.data.data[3] << 24)));
-        m_torque = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8));
+        // current is supplied in milliamps
+        m_current_amp = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8 | (object.data.data[2] << 16) | (object.data.data[3] << 24))) * M_MILLIX_TO_X;
+        // torque is supplied in milliNewton-meters  TODO: torque may be given in 0.1% of max torque, which needs to be specified... for now assuming milliNewton-meters
+        m_torque_nm = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8)) * M_MILLIX_TO_X;
         return true;
     }
     else if (m_cobid_map.find("read_stat_op") != m_cobid_map.end() && cobid == m_cobid_map.at("read_stat_op"))
     {
         // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
         // see manual for full statusword breakdown. Taking bit 2 for operation enabled bit 3 for fault bit 5 for quick stop bit bit 15 for homed bit
-        // m_is_enabled = (object.data.data[0] & 0x04) != 0;
-        // m_is_faulted = (object.data.data[0] & 0x08) != 0;
-        // m_is_quick_stopped = (object.data.data[0] & 0x20) != 0;
-        m_is_homed = (object.data.data[0] & 0x80) != 0;
+        m_is_enabled = (object.data.data[0] & 0x04) != 0; // bit 2
+        m_is_faulted = (object.data.data[0] & 0x08) != 0; // bit 3
+        m_is_quick_stopped = (object.data.data[0] & 0x20) != 0; // bit 5
+        // bit 15 of the status word is actually bit 7 of the second byte
+        if (m_needs_homing)
+            m_is_homed = (object.data.data[1] & 0x80) != 0; // bit 15 of status word, bit 7 of second byte
+        else
+            m_is_homed = true;
         
-        // TODO?: Statusword
         m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
         return true;
     }
@@ -358,7 +369,14 @@ bool BIGSSMaxonCAN::perform_homing_sequence()
 
     // perform homing sequence
     auto result = write_can_sequence(cobid, m_homing_sequence);
-    if (result)
-        m_is_homed = true;
+    // if (result)
+        // m_is_homed = true;
     return result;
+}
+
+bool BIGSSMaxonCAN::check_is_homed_before_moving()
+{
+    if (!m_is_homed)
+        std::cerr << "BIGSSMaxonCAN: not homed. Will not perform command. Either perform homing or set m_needs_homing to false" << std::endl;
+    return m_is_homed;
 }

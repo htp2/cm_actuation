@@ -1,10 +1,12 @@
 #include <memory>
 #include <ros/ros.h>
 #include <sensor_msgs/JointState.h>
+#include <std_srvs/Trigger.h>
+#include <std_msgs/Bool.h>
 
 #include <cm_actuation/BIGSSMaxonCANROS.hpp>
 
-// Please note: due to use of multiple timers, please use the async spinner your the main function
+// Please note: due to use of multiple timers, please use the async spinner your the main function (you will need multiple threads)
 // e.g. ros::AsyncSpinner spinner(0); spinner.start(); ros::waitForShutdown();
 
 BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::string& can_device_name, const std::string& supported_actuator_name, 
@@ -12,6 +14,9 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
 : m_rosNodeHandle(ros_nh), m_lowlevel_vel_mode(vel_mode), m_lowlevel_pos_mode(pos_mode)
 {
     m_measured_js_pub = m_rosNodeHandle.advertise<sensor_msgs::JointState>("measured_js", 1);
+    m_is_homed_pub = m_rosNodeHandle.advertise<std_msgs::Bool>("is_homed", 1);
+    m_is_enabled_pub = m_rosNodeHandle.advertise<std_msgs::Bool>("is_enabled", 1);
+
     m_servo_jp_sub = m_rosNodeHandle.subscribe("servo_jp", 1, &BIGSSMaxonCANROS::servo_jp_cb, this);
     m_servo_jv_sub = m_rosNodeHandle.subscribe("servo_jv", 1, &BIGSSMaxonCANROS::servo_jv_cb, this);
     m_enable_srv = m_rosNodeHandle.advertiseService("enable", &BIGSSMaxonCANROS::enable_srv_cb, this);
@@ -29,7 +34,7 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     // create a timer for RTR (this is where you can periodically ping the device to send out updates)
     m_rtr_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/100.0), &BIGSSMaxonCANROS::rtr_timer_cb, this);
 
-    //TODO?: settable velocity timeout rate
+    //FUTURE: could make a settable velocity timeout rate
     m_vel_cmd_timeout_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0), &BIGSSMaxonCANROS::vel_cmd_timeout_timer_cb, this);
     m_vel_cmd_timeout_timer.stop(); // only will be enabled when we are in velocity mode
 
@@ -38,9 +43,8 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_maxon_can = std::make_unique<BIGSSMaxonCAN>(can_device_name, supported_actuator_name);
     ROS_INFO("BIGSSMaxonCANROS: BIGSSMaxonCAN object created");
 
-    //temp hardset TODO: make homing functions, etc.
-    m_maxon_can->enable_PDO();
-    m_maxon_can->set_enable_state();
+    m_maxon_can->enable_PDO(); // enables communication with device
+    m_maxon_can->set_enable_state(); 
 }
 // note the BIGSSMaxonCAN has a constructor that allows you to directly specify your own cobid map.
 // An equivalent constructor for the ROS wrapper could be easily added if needed
@@ -48,6 +52,10 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
 BIGSSMaxonCANROS::~BIGSSMaxonCANROS()
 {
     m_maxon_can->set_disable_state();
+    m_pub_timer.stop();
+    m_read_timer.stop();
+    m_rtr_timer.stop();
+    m_vel_cmd_timeout_timer.stop();
 }
 
 bool BIGSSMaxonCANROS::servo_jp(const double position_rad){
@@ -108,18 +116,31 @@ void BIGSSMaxonCANROS::pub_timer_cb(const ros::TimerEvent& event)
     js_msg.header.stamp = ros::Time::now();
     js_msg.header.frame_id = "bigss_maxon_can"; // TODO replace with name
     js_msg.name.push_back("bigss_maxon_can");
-    js_msg.position.push_back(m_measured_js);
+    js_msg.position.push_back(m_measured_jp);
     js_msg.velocity.push_back(m_measured_jv);
-    //TODO: effort
+    js_msg.effort.push_back(m_measured_jt);
     m_measured_js_pub.publish(js_msg);
+
+    // publish is_homed
+    std_msgs::Bool is_homed_msg;
+    is_homed_msg.data = m_is_homed;
+    m_is_homed_pub.publish(is_homed_msg);
+
+    // publish is_enabled
+    std_msgs::Bool is_enabled_msg;
+    is_enabled_msg.data = m_maxon_can->m_is_enabled;
+    m_is_enabled_pub.publish(is_enabled_msg);
 }
 
 void BIGSSMaxonCANROS::read_timer_cb(const ros::TimerEvent& event)
 {
-    // TODO: this callback can hang becuase the "read" functionality is blocking. Hangs until the next CAN message is received.
+    // FUTURE: this callback can hang becuase the "read" functionality is blocking. Hangs until the next CAN message is received.
+    // usually not an issue, but might have to kill the proccess, not just Ctrl+C if stopping node while it is waiting for a CAN message
     m_maxon_can->read_and_parse_known_data();
-    m_measured_js = m_maxon_can->m_position_rad;
+    m_measured_jp = m_maxon_can->m_position_rad;
     m_measured_jv = m_maxon_can->m_velocity_rad_per_sec;
+    m_measured_jt = m_maxon_can->m_torque_nm;
+    m_is_homed = m_maxon_can->m_is_homed;
 }
 
 void BIGSSMaxonCANROS::vel_cmd_timeout_timer_cb(const ros::TimerEvent& event)
@@ -186,3 +207,4 @@ bool BIGSSMaxonCANROS::home_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Tr
         res.message = "BIGSSMaxonCANROS: failed to start homing sequence";
     return true;
 }
+
