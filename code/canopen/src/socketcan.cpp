@@ -109,6 +109,33 @@ SocketCAN::Errno SocketCAN::Send( const CANFrame& canframe, SocketCAN::Flags ){
   return ESUCCESS;
 }
 
+// Send a can frame
+// Note that block is useless for Socket CAN
+SocketCAN::Errno SocketCAN::SendRTR( const CANFrame& canframe, SocketCAN::Flags ){
+  // copy the data in to a Socket CAN frame
+  // can_frame_t is defined in xenomai/include/rtdm/rtcan.h
+  can_frame frame;
+  frame.can_id = (canid_t)canframe.GetID();
+  // set the RTR bit
+  frame.can_id |= CAN_RTR_FLAG;
+
+  frame.can_dlc = (__u8)canframe.GetLength();  
+
+  const __u8* data = (const __u8*)canframe.GetData();
+  for(size_t i=0; i<8; i++)
+    { frame.data[i] = data[i]; }
+
+  // send the frame
+  int error = send( canfd, (void*)&frame, sizeof(can_frame), 0 );
+  if( error < 0 ){
+    ROS_ERROR_STREAM( "Failed to send CAN frame " << error << std::endl );
+    perror( "Failure " );
+    return EFAILURE;
+  }
+
+  return ESUCCESS;
+}
+
 // Receive a CAN frame
 SocketCAN::Errno SocketCAN::Recv( CANFrame& canframe, SocketCAN::Flags){
   struct can_frame frame;            // the RT Socket CAN frame

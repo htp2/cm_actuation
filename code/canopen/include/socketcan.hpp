@@ -94,6 +94,9 @@ public:
   SocketCAN::Errno Send( const CANFrame& frame, 
 			 SocketCAN::Flags flags = SocketCAN::MSG_NOFLAG );
 
+  SocketCAN::Errno SendRTR( const CANFrame& frame, 
+			 SocketCAN::Flags flags = SocketCAN::MSG_NOFLAG );
+
   //! Receive a CAN frame
   /**
      Call this method to receive a CAN frame.

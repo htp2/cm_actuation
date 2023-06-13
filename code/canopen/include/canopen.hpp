@@ -39,6 +39,7 @@ class CANopen{
 
    /*! \brief Write CAN frame. */
   CANopen::Errno Write( CiA301::COBID cobid, const CiA301::Object& object );
+  CANopen::Errno WriteRTR( CiA301::COBID cobid);
 
   bool IsOpen(void) const { return deviceopened; }
   

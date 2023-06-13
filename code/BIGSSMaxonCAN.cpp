@@ -33,6 +33,8 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             CiA301::Object({0x0F, 0x01, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
             CiA301::Object({0x0F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
             CiA301::Object({0x1F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00})};
+        m_encoder_to_rad = M_ROT_TO_RAD / (4 * 12800.0);       // 12800 ticks per rotation and quadrature encoder
+        m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 2.0 * 0.1; // 2:1 I/O gear ratio, 0.1 increment on rpm command
     }
     else
     {
@@ -54,7 +56,7 @@ void BIGSSMaxonCAN::initialize_can(const std::string &devicename, const SocketCA
     canopen_reader = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
     canopen_commander = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
     canopen_rtr = std::make_unique<CANopen>(devicename, rate, SocketCAN::Loopback::LOOPBACK_OFF);
-    
+
     canopen_reader->Open();
     canopen_commander->Open();
     canopen_rtr->Open();
@@ -82,7 +84,7 @@ bool BIGSSMaxonCAN::write_can_sequence(const CiA301::COBID cobid, const std::vec
     return true;
 }
 
-bool BIGSSMaxonCAN::write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>>& cmds)
+bool BIGSSMaxonCAN::write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>> &cmds)
 {
     // small helper function to write a sequence of commands to a cobid, returns early with false if any command fails
     // this sends to different cobids
@@ -234,7 +236,7 @@ bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
 bool BIGSSMaxonCAN::PPM_command(const double position_rad)
 {
     // print warning not implemented
-    std::cout << "BIGSSMaxonCAN: PPM_command not implemented yet." << std::endl;    
+    std::cout << "BIGSSMaxonCAN: PPM_command not implemented yet." << std::endl;
     return false;
 }
 
@@ -242,12 +244,12 @@ bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)
 {
     if (!check_if_in_correct_mode(SupportedOperatingModes::CSV))
         return false;
-    
+
     CiA301::COBID cobid;
     if (!extract_cobid_if_supported("csv_target", cobid))
         return false;
-    auto velocity_rpm = velocity_rad_per_sec * M_RAD_PER_SEC_TO_RPM;
-    auto command_int32 = static_cast<int32_t>(velocity_rpm * 10.0);
+    auto velocity_rpm = velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
+    auto command_int32 = static_cast<int32_t>(velocity_rpm);
     auto cmd = pack_int32_into_can_obj(command_int32);
     auto result = canopen_commander->Write(cobid, cmd);
     return result == CANopen::ESUCCESS;
@@ -273,7 +275,7 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     CiA301::COBID cobid;
     CiA301::Object object;
     canopen_reader->Read(cobid, object);
-    
+
     // if object is empty, must be a transmit command so just return true
     if (object.data.data.empty())
         return true;
@@ -283,8 +285,8 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     {
         // first 4 bytes are position, next 4 bytes are velocity, both in little endian
         // position is in rotations, velocity is in 0.1 RPM
-        m_position_rad = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8) | (object.data.data[2] << 16) | (object.data.data[3] << 24)) * M_ROT_TO_RAD;
-        m_velocity_rad_per_sec = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8) | (object.data.data[6] << 16) | (object.data.data[7] << 24)) * M_RPM_TO_RAD_PER_SEC * 0.1;
+        m_position_rad = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8) | (object.data.data[2] << 16) | (object.data.data[3] << 24)) * m_encoder_to_rad;
+        m_velocity_rad_per_sec = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8) | (object.data.data[6] << 16) | (object.data.data[7] << 24)) * m_maxonvel_to_rad_per_sec;
         return true;
     }
     else if (m_cobid_map.find("read_cur_tor") != m_cobid_map.end() && cobid == m_cobid_map.at("read_cur_tor"))
@@ -297,7 +299,7 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     else if (m_cobid_map.find("read_stat_op") != m_cobid_map.end() && cobid == m_cobid_map.at("read_stat_op"))
     {
         // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
-        //TODO?: Statusword
+        // TODO?: Statusword
         m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
         return true;
     }
@@ -311,19 +313,24 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
 bool BIGSSMaxonCAN::send_transmit_requests()
 {
     CiA301::COBID cobid;
-    CiA301::Object empty_obj;
     if (extract_cobid_if_supported("read_pos_vel", cobid))
-        canopen_rtr->Write(cobid, empty_obj);
+    {
+        canopen_rtr->WriteRTR(cobid);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1)); // TODO: can we get better implementation?
+    }
     if (extract_cobid_if_supported("read_cur_tor", cobid))
-        canopen_rtr->Write(cobid, empty_obj);
+    {
+        canopen_rtr->WriteRTR(cobid);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     if (extract_cobid_if_supported("read_stat_op", cobid))
-        canopen_rtr->Write(cobid, empty_obj);
+        canopen_rtr->WriteRTR(cobid);
     return true;
 }
 
 bool BIGSSMaxonCAN::perform_homing_sequence()
 {
-    // if m_homing_sequence is empty we assume that homing is not required for this actuator and return true    
+    // if m_homing_sequence is empty we assume that homing is not required for this actuator and return true
     if (m_homing_sequence.empty())
     {
         std::cerr << "BIGSSMaxonCAN: homing sequence is empty. Will not perform homing." << std::endl;

@@ -61,6 +61,8 @@ class BIGSSMaxonCAN
         std::map<std::string, CiA301::COBID> m_cobid_map;
         CiA301::Node::ID m_node_id;
         std::vector<CiA301::Object> m_homing_sequence = {};
+        double m_encoder_to_rad;
+        double m_maxonvel_to_rad_per_sec;
 
         bool write_can_sequence(const CiA301::COBID cobid, const std::vector<CiA301::Object> cmds);
         bool write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>>& cmds);

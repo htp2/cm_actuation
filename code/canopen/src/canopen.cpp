@@ -61,6 +61,18 @@ CANopen::Errno CANopen::Write( CiA301::COBID cobid,
 
 }
 
+CANopen::Errno CANopen::WriteRTR( CiA301::COBID cobid){
+   
+   CiA301::Object empty_object;
+   if( socketcan.SendRTR( Pack( cobid, empty_object ) ) != SocketCAN::ESUCCESS ){
+     ROS_ERROR_STREAM( "Failed to write CAN frame." << std::endl );
+     return CANopen::EFAILURE;
+   }
+
+   return CANopen::ESUCCESS;
+
+}
+
 // Pack
 // 
 CANFrame CANopen::Pack( CiA301::COBID cobid, const CiA301::Object& object )
