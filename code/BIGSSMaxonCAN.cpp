@@ -293,12 +293,19 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
     {
         // first 4 bytes is current, next 2 bytes is torque, both in little endian
         // TODO?: Current
+        m_current = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8 | (object.data.data[2] << 16) | (object.data.data[3] << 24)));
         m_torque = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8));
         return true;
     }
     else if (m_cobid_map.find("read_stat_op") != m_cobid_map.end() && cobid == m_cobid_map.at("read_stat_op"))
     {
         // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
+        // see manual for full statusword breakdown. Taking bit 2 for operation enabled bit 3 for fault bit 5 for quick stop bit bit 15 for homed bit
+        // m_is_enabled = (object.data.data[0] & 0x04) != 0;
+        // m_is_faulted = (object.data.data[0] & 0x08) != 0;
+        // m_is_quick_stopped = (object.data.data[0] & 0x20) != 0;
+        m_is_homed = (object.data.data[0] & 0x80) != 0;
+        
         // TODO?: Statusword
         m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
         return true;

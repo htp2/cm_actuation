@@ -53,12 +53,10 @@ BIGSSMaxonCANROS::~BIGSSMaxonCANROS()
 bool BIGSSMaxonCANROS::servo_jp(const double position_rad){
     if(m_lowlevel_pos_mode == OpModes::CSP)
     {
-        m_maxon_can->set_operation_mode(OpModes::CSP);
         m_maxon_can->CSP_command(position_rad);
     }
     else if (m_lowlevel_pos_mode == OpModes::PPM)
     {
-        m_maxon_can->set_operation_mode(OpModes::PPM);
         m_maxon_can->PPM_command(position_rad);
     }
     else{
@@ -71,12 +69,10 @@ bool BIGSSMaxonCANROS::servo_jp(const double position_rad){
 bool BIGSSMaxonCANROS::servo_jv(const double velocity_rad_per_sec){
     if(m_lowlevel_vel_mode == OpModes::CSV)
     {
-        m_maxon_can->set_operation_mode(OpModes::CSV);
         m_maxon_can->CSV_command(velocity_rad_per_sec);
     }
     else if (m_lowlevel_vel_mode == OpModes::PVM)
     {
-        m_maxon_can->set_operation_mode(OpModes::PVM);
         m_maxon_can->PVM_command(velocity_rad_per_sec);
     }
     else{

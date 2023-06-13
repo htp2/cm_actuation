@@ -51,6 +51,7 @@ class BIGSSMaxonCAN
         double m_position_rad;
         double m_velocity_rad_per_sec;
         double m_torque;
+        double m_current;
         bool m_is_homed = false;
 
     private:
