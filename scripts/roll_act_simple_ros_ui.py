@@ -6,6 +6,7 @@
 
 import sys
 import rospy
+from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
 from sensor_msgs.msg import JointState
 from PyQt5 import QtWidgets, QtCore
@@ -66,14 +67,22 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.measured_jp = 0.0
         self.measured_js = JointState()
         self.measured_js_sub = rospy.Subscriber(self.system_namespace+'measured_js', JointState, self.measured_js_callback)
+        self.is_homed = False
+        self.is_homed_sub = rospy.Subscriber(self.system_namespace+'is_homed', Bool, self.is_homed_callback)
+        self.is_enabled = False
+        self.is_enabled_sub = rospy.Subscriber(self.system_namespace+'is_enabled', Bool, self.is_enabled_callback)
+
 
         self.move_jp_pub = rospy.Publisher(self.system_namespace+'move_jp', JointState, queue_size=1)
+        self.send_servo_jv_cmd = False
         self.servo_jv_pub = rospy.Publisher(self.system_namespace+'servo_jv', JointState, queue_size=1)
 
         self.disable_srv = rospy.ServiceProxy(self.system_namespace+'disable', Trigger)
         self.enable_srv = rospy.ServiceProxy(self.system_namespace+'enable', Trigger)
         self.set_cmd_mode_pos_srv = rospy.ServiceProxy(self.system_namespace+'set_cmd_mode_pos', Trigger)
         self.set_cmd_mode_vel_srv = rospy.ServiceProxy(self.system_namespace+'set_cmd_mode_vel', Trigger)
+        self.home_srv = rospy.ServiceProxy(self.system_namespace+'home', Trigger)
+        self.halt_srv = rospy.ServiceProxy(self.system_namespace+'halt', Trigger)
 
     def initWidgets(self):
         # position and velocity current values
@@ -87,6 +96,7 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.measured_js_table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.measured_js_table.setItemDelegate(FloatDelegate(3))
         self.measured_js_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.measured_js_table.setRowCount(1)
 
         #buttons for services
         self.disable_button = QtWidgets.QPushButton('Disable')
@@ -101,7 +111,13 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.set_cmd_mode_vel_button = QtWidgets.QPushButton('Set Velocity Mode')
         self.set_cmd_mode_vel_button.setStyleSheet(color_button_deactivated)
         self.set_cmd_mode_vel_button.clicked.connect(self.set_cmd_mode_vel_clicked)
-
+        self.home_button = QtWidgets.QPushButton('Home')
+        self.home_button.setStyleSheet(color_button_deactivated)
+        self.home_button.clicked.connect(self.home_srv_clicked)
+        self.halt_button = QtWidgets.QPushButton('Halt')
+        self.halt_button.setStyleSheet(color_button_deactivated)
+        self.halt_button.clicked.connect(self.halt_srv_clicked)
+        
         # manual position and velocity commands
         self.move_jp_label = QtWidgets.QLabel('Manual Joint Position Command')
         self.move_jp_label.setAlignment(QtCore.Qt.AlignCenter)
@@ -137,6 +153,21 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.send_vel_cmd_button.setStyleSheet(color_button_deactivated)
         self.send_vel_cmd_button.clicked.connect(self.send_vel_cmd_clicked)
 
+        self.stop_vel_cmd_button = QtWidgets.QPushButton('Stop Velocity Command')
+        self.stop_vel_cmd_button.setStyleSheet(color_button_deactivated)
+        self.stop_vel_cmd_button.clicked.connect(self.stop_vel_cmd_clicked)
+
+        # indicators for homing and enabling whose color changes depending on the state, not buttons but labels with background color
+        self.is_homed_indicator = QtWidgets.QLabel('Homed')
+        self.is_homed_indicator.setAlignment(QtCore.Qt.AlignCenter)
+        self.is_homed_indicator.setStyleSheet('font: 12pt')
+        self.is_homed_indicator.setStyleSheet(color_negative_indicator)
+
+        self.is_enabled_indicator = QtWidgets.QLabel('Enabled')
+        self.is_enabled_indicator.setAlignment(QtCore.Qt.AlignCenter)
+        self.is_enabled_indicator.setStyleSheet('font: 12pt')
+        self.is_enabled_indicator.setStyleSheet(color_negative_indicator)
+
     def initTimer(self):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update)
@@ -144,27 +175,72 @@ class SimpleRosUi(QtWidgets.QWidget):
 
     def initLayout(self):
         self.main_layout = QtWidgets.QVBoxLayout()
-        self.main_layout.addWidget(self.measured_js_label)
-        self.main_layout.addWidget(self.measured_js_table)
+
+        self.disclaimer_label = QtWidgets.QLabel('This is a simple UI to interact with BIGSSMaxonCANROS for simple testing and debugging. Please feel free to modify it to your needs.')
+        self.disclaimer_label.setWordWrap(True)
+        self.disclaimer_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.disclaimer_label.setStyleSheet('font: 12pt')
+        self.main_layout.addWidget(self.disclaimer_label)
+        
+        self.state_data_layout = QtWidgets.QHBoxLayout()
+        self.state_data_layout.addWidget(self.measured_js_label)
+        self.state_data_layout.addWidget(self.measured_js_table)
+        self.state_data_layout.addWidget(self.is_homed_indicator)
+        self.state_data_layout.addWidget(self.is_enabled_indicator)
+        self.main_layout.addLayout(self.state_data_layout)
 
         self.button_layout = QtWidgets.QHBoxLayout()
         self.button_layout.addWidget(self.disable_button)
         self.button_layout.addWidget(self.enable_button)
         self.button_layout.addWidget(self.set_cmd_mode_pos_button)
         self.button_layout.addWidget(self.set_cmd_mode_vel_button)
+        self.button_layout.addWidget(self.home_button)
+        self.button_layout.addWidget(self.halt_button)
         self.main_layout.addLayout(self.button_layout)
+        
+        # add a widget with tabs for position and velocity commands
+        tab1 = QtWidgets.QWidget()
+        tab1_layout = QtWidgets.QVBoxLayout()
+        tab1_layout.addWidget(self.move_jp_label)
+        tab1_layout.addWidget(self.move_jp_table)
+        tab1_layout.addWidget(self.send_pos_cmd_button)
+        tab1.setLayout(tab1_layout)
 
-        self.main_layout.addWidget(self.move_jp_label)
-        self.main_layout.addWidget(self.move_jp_table)
-        self.main_layout.addWidget(self.send_pos_cmd_button)
-        self.main_layout.addWidget(self.servo_jv_label)
-        self.main_layout.addWidget(self.servo_jv_table)
-        self.main_layout.addWidget(self.send_vel_cmd_button)
+        tab2 = QtWidgets.QWidget()
+        tab2_layout = QtWidgets.QVBoxLayout()
+        tab2_layout.addWidget(self.servo_jv_label)
+        tab2_layout.addWidget(self.servo_jv_table)
+        tab2_layout.addWidget(self.send_vel_cmd_button)
+        tab2_layout.addWidget(self.stop_vel_cmd_button)
+        tab2.setLayout(tab2_layout)
+
+        tabs = QtWidgets.QTabWidget()
+        tabs.addTab(tab1, "Manual Position Command")
+        tabs.addTab(tab2, "Manual Velocity Command")
+        self.main_layout.addWidget(tabs)
+
+        # add two tabs, one for position and one for velocity        
+
+        # self.main_layout.addWidget(self.move_jp_label)
+        # self.main_layout.addWidget(self.move_jp_table)
+        # self.main_layout.addWidget(self.send_pos_cmd_button)
+        # self.main_layout.addWidget(self.servo_jv_label)
+        # self.main_layout.addWidget(self.servo_jv_table)
+        # self.main_layout.addWidget(self.send_vel_cmd_button)
+        # self.main_layout.addWidget(self.stop_vel_cmd_button)
         self.setLayout(self.main_layout)
 
     def measured_js_callback(self, msg):
         self.measured_jp = msg.position[0]
         self.measured_jv = msg.velocity[0]
+
+    def is_homed_callback(self, msg):
+        self.is_homed = msg.data
+
+        
+    def is_enabled_callback(self, msg):
+        self.is_enabled = msg.data
+
     
     def disable_srv_clicked(self):
         self.disable_srv()
@@ -178,6 +254,17 @@ class SimpleRosUi(QtWidgets.QWidget):
     def set_cmd_mode_vel_clicked(self):
         self.set_cmd_mode_vel_srv()
 
+    def home_srv_clicked(self):
+        self.home_srv()
+
+    def halt_srv_clicked(self):
+        if self.send_servo_jv_cmd:
+            self.send_servo_jv_cmd = False
+            self.servo_jv = JointState()
+            self.servo_jv.velocity = [0.0]
+            self.servo_jv_pub.publish(self.servo_jv)
+        self.halt_srv()
+
     def send_pos_cmd_clicked(self):
         self.move_jp = JointState()
         self.move_jp.position = [float(self.move_jp_table.item(0,0).text())]
@@ -185,8 +272,14 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.move_jp_pub.publish(self.move_jp)
 
     def send_vel_cmd_clicked(self):
-        self.servo_jv = JointState()
+        self.send_servo_jv_cmd = True
+        self.active_servo_jv_cmd = self.servo_jv = JointState()
         self.servo_jv.velocity = [float(self.servo_jv_table.item(0,0).text())]
+
+    def stop_vel_cmd_clicked(self):
+        self.send_servo_jv_cmd = False
+        self.servo_jv = JointState()
+        self.servo_jv.velocity = [0.0]
         self.servo_jv_pub.publish(self.servo_jv)
 
     def update(self):
@@ -195,15 +288,16 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.measured_js_table.setItem(0, 1, QtWidgets.QTableWidgetItem(str(self.measured_jv)))
         self.measured_js_table.resizeColumnsToContents()
         self.measured_js_table.resizeRowsToContents()
+        self.is_homed_indicator.setStyleSheet(color_positive_indicator if self.is_homed else color_negative_indicator)
+        self.is_enabled_indicator.setStyleSheet(color_positive_indicator if self.is_enabled else color_negative_indicator)
+
+        if self.send_servo_jv_cmd:
+            self.servo_jv_pub.publish(self.servo_jv)
 
     def closeEvent(self, event):
         self.timer.stop()
         self.disable_srv()
         event.accept()
-
-    
-
-    
 
 def sigint_handler(*args):
     """Handler for the SIGINT signal."""

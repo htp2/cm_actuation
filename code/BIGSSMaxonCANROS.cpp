@@ -24,6 +24,7 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_set_cmd_mode_vel_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_vel", &BIGSSMaxonCANROS::set_cmd_mode_vel_cb, this);
     m_set_cmd_mode_pos_srv = m_rosNodeHandle.advertiseService("set_cmd_mode_pos", &BIGSSMaxonCANROS::set_cmd_mode_pos_cb, this);
     m_home_srv = m_rosNodeHandle.advertiseService("home", &BIGSSMaxonCANROS::home_srv_cb, this);
+    m_halt_srv = m_rosNodeHandle.advertiseService("halt", &BIGSSMaxonCANROS::halt_srv_cb, this);
 
     // create timer to publish measured_js
     m_pub_timer = m_rosNodeHandle.createTimer(ros::Duration(1.0/pub_hz), &BIGSSMaxonCANROS::pub_timer_cb, this);
@@ -208,3 +209,12 @@ bool BIGSSMaxonCANROS::home_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Tr
     return true;
 }
 
+bool BIGSSMaxonCANROS::halt_srv_cb(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res)
+{
+    res.success = m_maxon_can->halt();
+    if (res.success)
+        res.message = "BIGSSMaxonCANROS: halt";
+    else
+        res.message = "BIGSSMaxonCANROS: failed to halt";
+    return true;
+}

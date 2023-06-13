@@ -19,7 +19,7 @@ class BIGSSMaxonCAN
         
         // This is the alternate constructor where you can specify all the properties needed yourself (e.g. if you have a new actuator that is not yet supported and don't add it to supported actuator list and recompile)
         BIGSSMaxonCAN(const std::string& devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, 
-            const SocketCAN::Rate rate, const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec);
+            const SocketCAN::Rate rate, const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec, const double motor_rated_torque_nm);
 
         ~BIGSSMaxonCAN();
       
@@ -52,6 +52,9 @@ class BIGSSMaxonCAN
         bool read_and_parse_known_data();
         bool send_transmit_requests();
         bool perform_homing_sequence();
+        bool halt();
+
+
         double m_position_rad;
         double m_velocity_rad_per_sec;
         double m_torque_nm;
@@ -73,6 +76,7 @@ class BIGSSMaxonCAN
         std::vector<CiA301::Object> m_homing_sequence = {};
         double m_encoder_to_rad;
         double m_maxonvel_to_rad_per_sec;
+        double m_motor_rated_torque_nm;
 
         bool write_can_sequence(const CiA301::COBID cobid, const std::vector<CiA301::Object> cmds);
         bool write_can_sequence(const std::vector<std::pair<const CiA301::COBID, const std::vector<CiA301::Object>>>& cmds);

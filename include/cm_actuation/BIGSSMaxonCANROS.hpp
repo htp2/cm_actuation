@@ -30,6 +30,7 @@ private:
     ros::ServiceServer m_set_cmd_mode_vel_srv;
     ros::ServiceServer m_set_cmd_mode_pos_srv;
     ros::ServiceServer m_home_srv;
+    ros::ServiceServer m_halt_srv;
 
     OpModes m_lowlevel_vel_mode = OpModes::PVM; // default //FUTURE: make this configurable
     OpModes m_lowlevel_pos_mode = OpModes::PPM; // default //FUTURE: make this configurable
@@ -59,4 +60,5 @@ private:
     bool set_cmd_mode_vel_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool set_cmd_mode_pos_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool home_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+    bool halt_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 };

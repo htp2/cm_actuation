@@ -34,8 +34,9 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
             CiA301::Object({0x0F, 0x01, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
             CiA301::Object({0x0F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00}),
             CiA301::Object({0x1F, 0x00, 0x06, 0x17, 0x64, 0x00, 0x00, 0x00})};
-        m_encoder_to_rad = M_ROT_TO_RAD / (4 * 12800.0);       // 12800 ticks per rotation and quadrature encoder
+        m_encoder_to_rad = M_ROT_TO_RAD / (4 * 12800.0);              // 12800 ticks per rotation and quadrature encoder
         m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 2.0 * 0.1; // 2:1 I/O gear ratio, 0.1 increment on rpm command
+        m_motor_rated_torque_nm = 1203.162 * M_MILLIX_TO_X;           // 1203.162 mNm
     }
     else
     {
@@ -46,9 +47,9 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
 }
 
 // This is the alternate constructor where you can specify all the properties needed yourself (e.g. if you have a new actuator that is not yet supported and don't add it to supported actuator list and recompile)
-BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate, 
-    const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec)
-    : m_node_id(node_id), m_cobid_map(cobid_map), m_needs_homing(needs_homing), m_homing_sequence(homing_sequence), m_encoder_to_rad(encoder_to_rad), m_maxonvel_to_rad_per_sec(maxonvel_to_rad_per_sec)
+BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::map<std::string, CiA301::COBID> cobid_map, const CiA301::Node::ID node_id, const SocketCAN::Rate rate,
+                             const bool needs_homing, const std::vector<CiA301::Object> homing_sequence, const double encoder_to_rad, const double maxonvel_to_rad_per_sec, const double motor_rated_torque_nm)
+    : m_node_id(node_id), m_cobid_map(cobid_map), m_needs_homing(needs_homing), m_homing_sequence(homing_sequence), m_encoder_to_rad(encoder_to_rad), m_maxonvel_to_rad_per_sec(maxonvel_to_rad_per_sec), m_motor_rated_torque_nm(motor_rated_torque_nm)
 {
     initialize_can(devicename, rate);
 }
@@ -227,7 +228,7 @@ bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
     CiA301::COBID cobid2;
     if (!extract_cobid_if_supported("pvm_exec", cobid2))
         return false;
-    auto velocity_rpm =velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
+    auto velocity_rpm = velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
     auto command_int32 = static_cast<int32_t>(velocity_rpm);
     auto cmd1 = pack_int32_into_can_obj(command_int32);
     auto cmd2 = CiA301::Object({0x0f, 0x00, 0x03, 0x60, 0x00, 0x00, 0x00, 0x00}); // set velocity target
@@ -241,7 +242,7 @@ bool BIGSSMaxonCAN::PPM_command(const double target_position_rad, const double p
 {
     if (!check_is_homed_before_moving())
         return false;
-    
+
     if (!check_if_in_correct_mode(SupportedOperatingModes::PPM))
         return false;
 
@@ -258,11 +259,11 @@ bool BIGSSMaxonCAN::PPM_command(const double target_position_rad, const double p
     auto profile_velocity_rpm = profile_velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
     command_int32 = static_cast<int32_t>(profile_velocity_rpm);
     // we have to prepend the data with two bytes for command word and postpend by two zero bytes, hence manually parsing the command_int32 and not using the function. the CiA301::Object constructor is very picky
-    auto cmd2 =  CiA301::Object({0x3F, 0x00, static_cast<unsigned char>(command_int32 & 0xFF), static_cast<unsigned char>((command_int32 >> 8) & 0xFF), static_cast<unsigned char>((command_int32 >> 16) & 0xFF), static_cast<unsigned char>((command_int32 >> 24) & 0xFF), 0x00, 0x00});
+    auto cmd2 = CiA301::Object({0x3F, 0x00, static_cast<unsigned char>(command_int32 & 0xFF), static_cast<unsigned char>((command_int32 >> 8) & 0xFF), static_cast<unsigned char>((command_int32 >> 16) & 0xFF), static_cast<unsigned char>((command_int32 >> 24) & 0xFF), 0x00, 0x00});
 
     auto cmd3 = CiA301::Object({0x0f, 0x00, static_cast<unsigned char>(command_int32 & 0xFF), static_cast<unsigned char>((command_int32 >> 8) & 0xFF), static_cast<unsigned char>((command_int32 >> 16) & 0xFF), static_cast<unsigned char>((command_int32 >> 24) & 0xFF), 0x00, 0x00});
 
-    auto result = write_can_sequence( { {cobid1, {cmd1}}, {cobid2, {cmd2, cmd3} }} );
+    auto result = write_can_sequence({{cobid1, {cmd1}}, {cobid2, {cmd2, cmd3}}});
     return result;
 }
 
@@ -300,7 +301,6 @@ bool BIGSSMaxonCAN::CST_command(const double torque)
 
 bool BIGSSMaxonCAN::read_and_parse_known_data()
 {
-    // TODO: NEED TO VERIFY THESE VALUES ARE CONVERTED CORRECTLY
     CiA301::COBID cobid;
     CiA301::Object object;
     canopen_reader->Read(cobid, object);
@@ -323,23 +323,23 @@ bool BIGSSMaxonCAN::read_and_parse_known_data()
         // first 4 bytes is current, next 2 bytes is torque, both in little endian
         // current is supplied in milliamps
         m_current_amp = static_cast<double>(object.data.data[0] | (object.data.data[1] << 8 | (object.data.data[2] << 16) | (object.data.data[3] << 24))) * M_MILLIX_TO_X;
-        // torque is supplied in milliNewton-meters  TODO: torque may be given in 0.1% of max torque, which needs to be specified... for now assuming milliNewton-meters
-        m_torque_nm = static_cast<double>(object.data.data[4] | (object.data.data[5] << 8)) * M_MILLIX_TO_X;
+        // torque given as 0.1% of motor rated torque
+        m_torque_nm = static_cast<double>(static_cast<int16_t>(object.data.data[4] | (object.data.data[5] << 8))) * 0.001 * m_motor_rated_torque_nm;
         return true;
     }
     else if (m_cobid_map.find("read_stat_op") != m_cobid_map.end() && cobid == m_cobid_map.at("read_stat_op"))
     {
         // first 2 bytes is statusword, next 1 bytes is operation mode, both in little endian
         // see manual for full statusword breakdown. Taking bit 2 for operation enabled bit 3 for fault bit 5 for quick stop bit bit 15 for homed bit
-        m_is_enabled = (object.data.data[0] & 0x04) != 0; // bit 2
-        m_is_faulted = (object.data.data[0] & 0x08) != 0; // bit 3
+        m_is_enabled = (object.data.data[0] & 0x04) != 0;       // bit 2
+        m_is_faulted = (object.data.data[0] & 0x08) != 0;       // bit 3
         m_is_quick_stopped = (object.data.data[0] & 0x20) != 0; // bit 5
         // bit 15 of the status word is actually bit 7 of the second byte
         if (m_needs_homing)
             m_is_homed = (object.data.data[1] & 0x80) != 0; // bit 15 of status word, bit 7 of second byte
         else
             m_is_homed = true;
-        
+
         m_operating_mode = static_cast<SupportedOperatingModes>(object.data.data[2]);
         return true;
     }
@@ -392,7 +392,7 @@ bool BIGSSMaxonCAN::perform_homing_sequence()
     // perform homing sequence
     auto result = write_can_sequence(cobid, m_homing_sequence);
     // if (result)
-        // m_is_homed = true;
+    // m_is_homed = true;
     return result;
 }
 
@@ -401,4 +401,30 @@ bool BIGSSMaxonCAN::check_is_homed_before_moving()
     if (!m_is_homed)
         std::cerr << "BIGSSMaxonCAN: not homed. Will not perform command. Either perform homing or set m_needs_homing to false" << std::endl;
     return m_is_homed;
+}
+
+bool BIGSSMaxonCAN::halt()
+{
+    if (!m_is_enabled)
+    {
+        std::cerr << "BIGSSMaxonCAN: not enabled. Will not execute command." << std::endl;
+        return false;
+    }
+
+    // if you are in one of the profile modes, send send the halt command
+    if (m_operating_mode == SupportedOperatingModes::PPM || m_operating_mode == SupportedOperatingModes::PVM || m_operating_mode == SupportedOperatingModes::HMM)
+    {
+        CiA301::COBID cobid;
+        if (!extract_cobid_if_supported("enable_state", cobid))
+            return false;
+        auto cmd = CiA301::Object({0x0f, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+        auto result = canopen_commander->Write(cobid, cmd);
+        return result == CANopen::ESUCCESS;
+    }
+    else
+    {
+        // FUTURE: implement an equivalent halting behavior for the other modes
+        std::cerr << "BIGSSMaxonCAN: halt only works for profile modes. Will not execute command." << std::endl;
+        return false;
+    }
 }
