@@ -23,7 +23,7 @@ private:
     ros::Publisher m_is_homed_pub;
     ros::Publisher m_is_enabled_pub; // FUTURE: could support/implement full state machine, or at least crtk compliant operating_state
 
-    ros::Subscriber m_servo_jp_sub;
+    ros::Subscriber m_move_jp_sub;
     ros::Subscriber m_servo_jv_sub;
     ros::ServiceServer m_enable_srv;
     ros::ServiceServer m_disable_srv;
@@ -31,15 +31,15 @@ private:
     ros::ServiceServer m_set_cmd_mode_pos_srv;
     ros::ServiceServer m_home_srv;
 
-    OpModes m_lowlevel_vel_mode = OpModes::CSV; // default to CSV //FUTURE: make this configurable
-    OpModes m_lowlevel_pos_mode = OpModes::PPM; // default to PPM //FUTURE: make this configurable
+    OpModes m_lowlevel_vel_mode = OpModes::PVM; // default //FUTURE: make this configurable
+    OpModes m_lowlevel_pos_mode = OpModes::PPM; // default //FUTURE: make this configurable
 
     double m_measured_jp = 0.0; // joint position (rad)
     double m_measured_jv = 0.0; // joint velocity (rad/s)
     double m_measured_jt = 0.0; // joint torque (Nm)
     bool m_is_homed = false;
 
-    bool servo_jp(const double position_rad);
+    bool move_jp(const double position_rad, const double profile_velocity_rad_per_sec);
     bool servo_jv(const double velocity_rad_per_sec);
 
     ros::Timer m_pub_timer; // how often to publish ros messages
@@ -52,7 +52,7 @@ private:
     void vel_cmd_timeout_timer_cb(const ros::TimerEvent &event);
 
 
-    void servo_jp_cb(const sensor_msgs::JointState &msg);
+    void move_jp_cb(const sensor_msgs::JointState &msg);
     void servo_jv_cb(const sensor_msgs::JointState &msg);
     bool enable_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     bool disable_srv_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);

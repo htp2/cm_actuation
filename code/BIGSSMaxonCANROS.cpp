@@ -17,7 +17,7 @@ BIGSSMaxonCANROS::BIGSSMaxonCANROS(const ros::NodeHandle ros_nh, const std::stri
     m_is_homed_pub = m_rosNodeHandle.advertise<std_msgs::Bool>("is_homed", 1);
     m_is_enabled_pub = m_rosNodeHandle.advertise<std_msgs::Bool>("is_enabled", 1);
 
-    m_servo_jp_sub = m_rosNodeHandle.subscribe("servo_jp", 1, &BIGSSMaxonCANROS::servo_jp_cb, this);
+    m_move_jp_sub = m_rosNodeHandle.subscribe("move_jp", 1, &BIGSSMaxonCANROS::move_jp_cb, this);
     m_servo_jv_sub = m_rosNodeHandle.subscribe("servo_jv", 1, &BIGSSMaxonCANROS::servo_jv_cb, this);
     m_enable_srv = m_rosNodeHandle.advertiseService("enable", &BIGSSMaxonCANROS::enable_srv_cb, this);
     m_disable_srv = m_rosNodeHandle.advertiseService("disable", &BIGSSMaxonCANROS::disable_srv_cb, this);
@@ -58,14 +58,14 @@ BIGSSMaxonCANROS::~BIGSSMaxonCANROS()
     m_vel_cmd_timeout_timer.stop();
 }
 
-bool BIGSSMaxonCANROS::servo_jp(const double position_rad){
+bool BIGSSMaxonCANROS::move_jp(const double position_rad, const double profile_velocity_rad_per_sec){
     if(m_lowlevel_pos_mode == OpModes::CSP)
     {
-        m_maxon_can->CSP_command(position_rad);
+        m_maxon_can->CSP_command(position_rad); // FUTURE: Not fully implemented on BIGSSMaxonCAN yet, probably should be a servo_jp command not move_jp
     }
     else if (m_lowlevel_pos_mode == OpModes::PPM)
     {
-        m_maxon_can->PPM_command(position_rad);
+        m_maxon_can->PPM_command(position_rad, profile_velocity_rad_per_sec); 
     }
     else{
         ROS_ERROR("BIGSSMaxonCANROS: unsupported lowlevel_pos_mode");
@@ -91,9 +91,9 @@ bool BIGSSMaxonCANROS::servo_jv(const double velocity_rad_per_sec){
 }
 
 
-void BIGSSMaxonCANROS::servo_jp_cb(const sensor_msgs::JointState& msg)
+void BIGSSMaxonCANROS::move_jp_cb(const sensor_msgs::JointState& msg)
 {
-    servo_jp(msg.position[0]);
+    move_jp(msg.position[0], msg.velocity[0]);
 }
 
 void BIGSSMaxonCANROS::servo_jv_cb(const sensor_msgs::JointState& msg)

@@ -1,6 +1,6 @@
 # Create a PYQT5 UI that does:
 # ROS subs for /bigss_maxon_can_ros_node/measured_js (sensor_msgs/JointState)
-# ROS pubs  for /bigss_maxon_can_ros_node/servo_jp (sensor_msgs/JointState) /bigss_maxon_can_ros_node/servo_jv (sensor_msgs/JointState)
+# ROS pubs  for /bigss_maxon_can_ros_node/move_jp (sensor_msgs/JointState) /bigss_maxon_can_ros_node/servo_jv (sensor_msgs/JointState)
 # calls these services: /bigss_maxon_can_ros_node/disable /bigss_maxon_can_ros_node/enable /bigss_maxon_can_ros_node/set_cmd_mode_pos /bigss_maxon_can_ros_node/set_cmd_mode_vel (all are std_srvs/Trigger)
 # for each service call make a button, for the subs make a label, for the pubs make a settable value and a button to send the value
 
@@ -67,7 +67,7 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.measured_js = JointState()
         self.measured_js_sub = rospy.Subscriber(self.system_namespace+'measured_js', JointState, self.measured_js_callback)
 
-        self.servo_jp_pub = rospy.Publisher(self.system_namespace+'servo_jp', JointState, queue_size=1)
+        self.move_jp_pub = rospy.Publisher(self.system_namespace+'move_jp', JointState, queue_size=1)
         self.servo_jv_pub = rospy.Publisher(self.system_namespace+'servo_jv', JointState, queue_size=1)
 
         self.disable_srv = rospy.ServiceProxy(self.system_namespace+'disable', Trigger)
@@ -103,17 +103,18 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.set_cmd_mode_vel_button.clicked.connect(self.set_cmd_mode_vel_clicked)
 
         # manual position and velocity commands
-        self.servo_jp_label = QtWidgets.QLabel('Manual Joint Position Command')
-        self.servo_jp_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.servo_jp_label.setStyleSheet('font: 12pt')
-        self.servo_jp_table = QtWidgets.QTableWidget()
-        self.servo_jp_table.setColumnCount(1)
-        self.servo_jp_table.setHorizontalHeaderLabels(['Position'])
-        self.servo_jp_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        self.servo_jp_table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-        self.servo_jp_table.setItemDelegate(FloatDelegate(3))
-        self.servo_jp_table.setRowCount(1)
-        self.servo_jp_table.setItem(0, 0, QtWidgets.QTableWidgetItem(str(0.0)))
+        self.move_jp_label = QtWidgets.QLabel('Manual Joint Position Command')
+        self.move_jp_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.move_jp_label.setStyleSheet('font: 12pt')
+        self.move_jp_table = QtWidgets.QTableWidget()
+        self.move_jp_table.setColumnCount(2)
+        self.move_jp_table.setHorizontalHeaderLabels(['Position', 'Velocity'])
+        self.move_jp_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.move_jp_table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.move_jp_table.setItemDelegate(FloatDelegate(3))
+        self.move_jp_table.setRowCount(1)
+        self.move_jp_table.setItem(0, 0, QtWidgets.QTableWidgetItem(str(0.0)))
+        self.move_jp_table.setItem(0, 1, QtWidgets.QTableWidgetItem(str(0.0)))
 
         self.servo_jv_label = QtWidgets.QLabel('Manual Joint Velocity Command')
         self.servo_jv_label.setAlignment(QtCore.Qt.AlignCenter)
@@ -153,8 +154,8 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.button_layout.addWidget(self.set_cmd_mode_vel_button)
         self.main_layout.addLayout(self.button_layout)
 
-        self.main_layout.addWidget(self.servo_jp_label)
-        self.main_layout.addWidget(self.servo_jp_table)
+        self.main_layout.addWidget(self.move_jp_label)
+        self.main_layout.addWidget(self.move_jp_table)
         self.main_layout.addWidget(self.send_pos_cmd_button)
         self.main_layout.addWidget(self.servo_jv_label)
         self.main_layout.addWidget(self.servo_jv_table)
@@ -178,9 +179,10 @@ class SimpleRosUi(QtWidgets.QWidget):
         self.set_cmd_mode_vel_srv()
 
     def send_pos_cmd_clicked(self):
-        self.servo_jp = JointState()
-        self.servo_jp.position = [float(self.servo_jp_table.item(0,0).text())]
-        self.servo_jp_pub.publish(self.servo_jp)
+        self.move_jp = JointState()
+        self.move_jp.position = [float(self.move_jp_table.item(0,0).text())]
+        self.move_jp.velocity = [float(self.move_jp_table.item(0,1).text())]
+        self.move_jp_pub.publish(self.move_jp)
 
     def send_vel_cmd_clicked(self):
         self.servo_jv = JointState()

@@ -237,11 +237,33 @@ bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
     return result;
 }
 
-bool BIGSSMaxonCAN::PPM_command(const double position_rad)
+bool BIGSSMaxonCAN::PPM_command(const double target_position_rad, const double profile_velocity_rad_per_sec)
 {
-    // print warning not implemented
-    std::cout << "BIGSSMaxonCAN: PPM_command not implemented yet." << std::endl;
-    return false;
+    if (!check_is_homed_before_moving())
+        return false;
+    
+    if (!check_if_in_correct_mode(SupportedOperatingModes::PPM))
+        return false;
+
+    CiA301::COBID cobid1;
+    if (!extract_cobid_if_supported("ppm_target", cobid1))
+        return false;
+    CiA301::COBID cobid2;
+    if (!extract_cobid_if_supported("ppm_exec", cobid2))
+        return false;
+    auto target_position_encoder = target_position_rad / m_encoder_to_rad;
+    auto command_int32 = static_cast<int32_t>(target_position_encoder);
+    auto cmd1 = pack_int32_into_can_obj(command_int32);
+
+    auto profile_velocity_rpm = profile_velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
+    command_int32 = static_cast<int32_t>(profile_velocity_rpm);
+    // we have to prepend the data with two bytes for command word and postpend by two zero bytes, hence manually parsing the command_int32 and not using the function. the CiA301::Object constructor is very picky
+    auto cmd2 =  CiA301::Object({0x3F, 0x00, static_cast<unsigned char>(command_int32 & 0xFF), static_cast<unsigned char>((command_int32 >> 8) & 0xFF), static_cast<unsigned char>((command_int32 >> 16) & 0xFF), static_cast<unsigned char>((command_int32 >> 24) & 0xFF), 0x00, 0x00});
+
+    auto cmd3 = CiA301::Object({0x0f, 0x00, static_cast<unsigned char>(command_int32 & 0xFF), static_cast<unsigned char>((command_int32 >> 8) & 0xFF), static_cast<unsigned char>((command_int32 >> 16) & 0xFF), static_cast<unsigned char>((command_int32 >> 24) & 0xFF), 0x00, 0x00});
+
+    auto result = write_can_sequence( { {cobid1, {cmd1}}, {cobid2, {cmd2, cmd3} }} );
+    return result;
 }
 
 bool BIGSSMaxonCAN::CSV_command(const double velocity_rad_per_sec)

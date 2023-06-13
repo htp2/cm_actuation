@@ -44,7 +44,7 @@ class BIGSSMaxonCAN
         bool set_operation_mode(const SupportedOperatingModes mode);
 
         bool PVM_command(const double velocity_rad_per_sec);
-        bool PPM_command(const double position_rad);
+        bool PPM_command(const double position_rad, const double profile_velocity_rad_per_sec);
         bool CSV_command(const double velocity_rad_per_sec);
         bool CSP_command(const double position_rad);
         bool CST_command(const double torque);
