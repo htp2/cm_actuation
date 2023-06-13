@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node pkg="cm_actuation" name="bigss_roll_act" type="bigss_maxon_can_ros_node" args="-c can0 -a roll_actuator -p 500"/>
+
+</launch>

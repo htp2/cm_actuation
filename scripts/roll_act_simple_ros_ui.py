@@ -12,6 +12,7 @@ from sensor_msgs.msg import JointState
 from PyQt5 import QtWidgets, QtCore
 import rospy
 import signal
+import argparse
 
 color_button_activated = 'background-color: rgba(30, 25, 141, 0.95)'
 color_button_deactivated = 'background-color: rgba(58, 47, 214, 0.45)'
@@ -304,7 +305,14 @@ def sigint_handler(*args):
     QtWidgets.QApplication.quit()
 
 def main():
-    namespace = "/bigss_maxon_can_ros_node/"
+    parser = argparse.ArgumentParser(description='Simple UI for BIGSSMaxonCANROS')
+    parser.add_argument('-n', '--namespace', type=str, default="/bigss_maxon_can_ros_node/", help='namespace of the BIGSSMaxonCANROS node')
+    # parse known and unknown arguments
+    args, unknown = parser.parse_known_args()
+    namespace = args.namespace
+    if namespace[-1] != '/':
+        namespace = namespace + '/'
+    # namespace = "/bigss_maxon_can_ros_node/"
 
     signal.signal(signal.SIGINT, sigint_handler) # https://stackoverflow.com/questions/4938723/what-is-the-correct-way-to-make-my-pyqt-application-quit-when-killed-from-the-co
     app = QtWidgets.QApplication(sys.argv)
