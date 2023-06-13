@@ -11,7 +11,7 @@ int main(int argc, char **argv)
     desc.add_options()
         ("help", "produce help message")
         ("can_device_name,c", po::value<std::string>()->default_value("can0"), "can device name")
-        ("supported_actuator_name,a", po::value<std::string>()->default_value("roll_actuator"), "supported actuator name")
+        ("supported_actuator_name,a", po::value<std::string>()->default_value("roll_act"), "supported actuator name")
         ("pub_hz,p", po::value<double>()->default_value(500.0), "publish rate (hz)");
 
     po::variables_map vm;

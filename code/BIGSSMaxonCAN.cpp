@@ -9,7 +9,7 @@
 // This is the preferred constructor (i.e. you use a 'hardcoded' supported / known actuator)
 BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &supported_actuator_name, const SocketCAN::Rate rate)
 {
-    if (supported_actuator_name == "roll_actuator")
+    if (supported_actuator_name == "roll_act")
     {
         m_node_id = 0x03;
         m_cobid_map = {
@@ -38,6 +38,32 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
         m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 2.0 * 0.1; // 2:1 I/O gear ratio, 0.1 increment on rpm command
         m_motor_rated_torque_nm = 1203.162 * M_MILLIX_TO_X;           // 1203.162 mNm
     }
+    if (supported_actuator_name == "act_unit")
+    {
+        m_node_id = 0x01;
+        m_cobid_map = {
+            {"enable_pdo", 0x000},
+            {"enable_state", 0x201},
+            {"pvm_target", 0x401},
+            {"pvm_exec", 0x501},
+            {"ppm_target", 0x301},
+            {"ppm_exec", 0x501},
+            {"csp_target", 0x301},
+            {"csv_target", 0x401},
+            {"cst_target", 0x501},
+            {"op_mode", 0x201},
+            {"quick_stop", 0x201},
+            {"read_pos_vel", 0x281},
+            {"read_cur_tor", 0x381},
+            {"read_stat_op", 0x181},
+        };
+        m_needs_homing = false; // absolute encoder
+        m_homing_sequence = {};
+        m_encoder_to_rad = M_ROT_TO_RAD / (4096.0);              // 4096 ticks per rotation
+        m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 1.0 * 0.1; // 1:1 I/O gear ratio, 0.1 increment on rpm command
+        m_motor_rated_torque_nm = 115.059 * M_MILLIX_TO_X;           // 115.059 mNm
+    }
+
     else
     {
         std::cerr << "BIGSSMaxonCAN: supported_actuator_name not recognized. Will not create." << std::endl;
