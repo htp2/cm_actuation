@@ -14,7 +14,7 @@ int main(int argc, char **argv)
     // get parameters
     std::string can_device_name = "can0";
     std::string supported_actuator_name = "roll_actuator";
-    double pub_hz = 100.0;
+    double pub_hz = 500.0;
 
     // create BIGSSMaxonCANROS object
     auto bigss_maxon_can_ros = std::make_unique<BIGSSMaxonCANROS>(ros_nh, can_device_name, supported_actuator_name, pub_hz);

@@ -223,8 +223,8 @@ bool BIGSSMaxonCAN::PVM_command(const double velocity_rad_per_sec)
     CiA301::COBID cobid2;
     if (!extract_cobid_if_supported("pvm_exec", cobid2))
         return false;
-    auto velocity_rpm = velocity_rad_per_sec * M_RAD_PER_SEC_TO_RPM;
-    auto command_int32 = static_cast<int32_t>(velocity_rpm * 10.0);
+    auto velocity_rpm =velocity_rad_per_sec / m_maxonvel_to_rad_per_sec;
+    auto command_int32 = static_cast<int32_t>(velocity_rpm);
     auto cmd1 = pack_int32_into_can_obj(command_int32);
     auto cmd2 = CiA301::Object({0x0f, 0x00, 0x03, 0x60, 0x00, 0x00, 0x00, 0x00}); // set velocity target
 
