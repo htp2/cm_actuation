@@ -60,7 +60,7 @@ BIGSSMaxonCAN::BIGSSMaxonCAN(const std::string &devicename, const std::string &s
         m_needs_homing = false; // absolute encoder
         m_homing_sequence = {};
         m_encoder_to_rad = M_ROT_TO_RAD / (4096.0);              // 4096 ticks per rotation
-        m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 1.0 * 0.1; // 1:1 I/O gear ratio, 0.1 increment on rpm command
+        m_maxonvel_to_rad_per_sec = M_RPM_TO_RAD_PER_SEC / 1.0 * 0.001; // 1:1 I/O gear ratio, 0.001 increment on rpm command
         m_motor_rated_torque_nm = 115.059 * M_MILLIX_TO_X;           // 115.059 mNm
     }
 
