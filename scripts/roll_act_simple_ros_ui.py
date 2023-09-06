@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Create a PYQT5 UI that does:
 # ROS subs for /bigss_maxon_can_ros_node/measured_js (sensor_msgs/JointState)
 # ROS pubs  for /bigss_maxon_can_ros_node/move_jp (sensor_msgs/JointState) /bigss_maxon_can_ros_node/servo_jv (sensor_msgs/JointState)
